@@ -66,6 +66,7 @@
       border-radius: 8px;
       padding: 16px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      cursor: pointer;
     }
     .card .card-row {
       display: flex;
@@ -91,9 +92,46 @@
       font-size: 0.9rem;
       color: #555;
     }
-    .time-slot {
-      font-size: 1.2rem;
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+    }
+    .modal-content {
+      background-color: white;
+      margin: 15% auto;
+      padding: 20px;
+      border-radius: 8px;
+      width: 80%;
+      max-width: 500px;
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+    .close {
+      color: #aaa;
+      float: right;
+      font-size: 28px;
       font-weight: bold;
+      cursor: pointer;
+    }
+    .close:hover {
+      color: black;
+    }
+    .save-btn {
+      margin-top: 10px;
+      padding: 8px 16px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .save-btn:hover {
+      background-color: #45a049;
     }
     .loading, .error {
       text-align: center;
@@ -127,11 +165,20 @@
     <input type="text" id="searchInput" placeholder="輸入搜索關鍵詞..." oninput="filterCards()">
   </div>
   <div id="cardContainer" class="loading">正在從 Google Sheets 加載資料...</div>
+  <div id="editModal" class="modal">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <div id="matchDetails"></div>
+      <button class="save-btn" onclick="saveResults()">保存</button>
+    </div>
+  </div>
   <script>
     // Google Sheets API URL
     const spreadsheetId = '1dQsKKBrQsKCDTkfkDNKIlKwYUPhUD_85NLM-BfKgcsM';
     const sheetId = '35854526';
     const apiUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?gid=${sheetId}&tqx=out:json`;
+
+    let cardData = {};
 
     // Fetch data from Google Sheets
     async function fetchSheetData() {
@@ -204,7 +251,8 @@
         }
         const displayLocation = firstItem?.地點 || '未知地點';
         dateDiv.innerHTML = `
-          <div class="group-header">${date} 地點：${displayLocation}</div>`;
+          <div class="group-header">${date}</div>
+          <div class="group-details">地點：${displayLocation}</div>`;
         for (const event in groupedData[date]) {
           const eventDiv = document.createElement('div');
           eventDiv.className = 'subgroup';
@@ -243,9 +291,10 @@
                   card.setAttribute('data-道場', item.道場 || '');
                   card.setAttribute('data-組別', item.組別 || '');
                   card.setAttribute('data-量級', item.量級 || '');
+                  card.onclick = () => showEditModal(item);
                   card.innerHTML = `
                     <div class="card-row">
-                      <span class="name">${item.姓名 || '未知姓名'}</span>
+                      <span class="name">${item.姓名 || '未知姓名'} ${cardData[item.姓名]?.rank || ''}</span>
                       <span class="details">${item.道場 || '-'}</span>
                     </div>
                     <div class="card-row">
@@ -281,6 +330,108 @@
       }
     }
 
+    function showEditModal(item) {
+      const modal = document.getElementById('editModal');
+      const matchDetails = document.getElementById('matchDetails');
+      matchDetails.innerHTML = `
+        <div class="card-row"><span class="name">${item.姓名 || '未知姓名'}</span> <span class="details">${item.道場 || '-'}</span></div>
+        <div class="card-row"><span class="details">${item.量級 || '-'}</span> <span class="details">${item.重量 || '-'}</span></div>
+        ${item.項目 === '搏擊' ? `
+          ${item.第一場藍紅方 ? `<div class="card-row"><span class="details">${item.第一場藍紅方 === 'r' ? '紅方' : '藍方'}, 場次 ${item.第一場場次 || '-'}, 對手 ${item.第一場對手 || '-'}</span> <select id="result1"><option value="">-</option><option value="勝">勝</option><option value="負">負</option></select></div>` : ''}
+          ${item.第二場藍紅方 ? `<div class="card-row"><span class="details">${item.第二場藍紅方 === 'r' ? '紅方' : '藍方'}, 場次 ${item.第二場場次 || '-'}, 對手 ${item.第二場對手 || '-'}</span> <select id="result2"><option value="">-</option><option value="勝">勝</option><option value="負">負</option></select></div>` : ''}
+          ${item.第三場藍紅方 ? `<div class="card-row"><span class="details">${item.第三場藍紅方 === 'r' ? '紅方' : '藍方'}, 場次 ${item.第三場場次 || '-'}, 對手 ${item.第三場對手 || '-'}</span> <select id="result3"><option value="">-</option><option value="勝">勝</option><option value="負">負</option></select></div>` : ''}
+          ${item.第四場藍紅方 ? `<div class="card-row"><span class="details">${item.第四場藍紅方 === 'r' ? '紅方' : '藍方'}, 場次 ${item.第四場場次 || '-'}, 對手 ${item.第四場對手 || '-'}</span> <select id="result4"><option value="">-</option><option value="勝">勝</option><option value="負">負</option></select></div>` : ''}
+          ${item.第五場藍紅方 ? `<div class="card-row"><span class="details">${item.第五場藍紅方 === 'r' ? '紅方' : '藍方'}, 場次 ${item.第五場場次 || '-'}, 對手 ${item.第五場對手 || '-'}</span> <select id="result5"><option value="">-</option><option value="勝">勝</option><option value="負">負</option></select></div>` : ''}
+          ${item.第六場藍紅方 ? `<div class="card-row"><span class="details">${item.第六場藍紅方 === 'r' ? '紅方' : '藍方'}, 場次 ${item.第六場場次 || '-'}, 對手 ${item.第六場對手 || '-'}</span> <select id="result6"><option value="">-</option><option value="勝">勝</option><option value="負">負</option></select></div>` : ''}
+          ${item.第七場藍紅方 ? `<div class="card-row"><span class="details">${item.第七場藍紅方 === 'r' ? '紅方' : '藍方'}, 場次 ${item.第七場場次 || '-'}, 對手 ${item.第七場對手 || '-'}</span> <select id="result7"><option value="">-</option><option value="勝">勝</option><option value="負">負</option></select></div>` : ''}
+        ` : ''}
+      `;
+      const results = cardData[item.姓名]?.results || {};
+      for (let i = 1; i <= 7; i++) {
+        const result = results[`result${i}`] || '';
+        if (document.getElementById(`result${i}`)) {
+          document.getElementById(`result${i}`).value = result;
+        }
+      }
+      modal.style.display = 'block';
+    }
+
+    function closeModal() {
+      document.getElementById('editModal').style.display = 'none';
+    }
+
+    function saveResults() {
+      const name = document.querySelector('#matchDetails .name').textContent;
+      const results = {};
+      for (let i = 1; i <= 7; i++) {
+        const result = document.getElementById(`result${i}`)?.value || '';
+        if (result) results[`result${i}`] = result;
+      }
+      cardData[name] = { ...cardData[name], results };
+      calculateRank(name);
+      generateGroupedCards(Object.values(cardData).flat());
+      closeModal();
+    }
+
+    function calculateRank(name) {
+      const item = cardData[name];
+      if (!item || item.項目 !== '搏擊') return;
+
+      const results = cardData[name]?.results || {};
+      const resultArray = [results.result1, results.result2, results.result3, results.result4, results.result5, results.result6, results.result7].filter(Boolean);
+      const totalMatches = [item.第一場藍紅方, item.第二場藍紅方, item.第三場藍紅方, item.第四場藍紅方, item.第五場藍紅方, item.第六場藍紅方, item.第七場藍紅方].filter(Boolean).length;
+      const completedMatches = resultArray.length;
+      const wins = resultArray.filter(r => r === '勝').length;
+      const losses = resultArray.filter(r => r === '負').length;
+
+      // 找到負場的索引（從 0 開始）
+      const lossIndex = resultArray.findIndex(r => r === '負');
+      const reversedLossIndex = totalMatches - 1 - (lossIndex >= 0 ? lossIndex : completedMatches - 1); // 轉為倒數位置
+
+      if (wins > 0 && losses === 0 && totalMatches > completedMatches) {
+        cardData[name].rank = ''; // 僅勝場且未完成，無名次
+      } else if (resultArray[completedMatches - 1] === '勝') {
+        cardData[name].rank = ' 冠軍'; // 最後一場勝
+      } else if (reversedLossIndex === 0) {
+        cardData[name].rank = ' 亞軍'; // 倒數第一場負
+      } else if (reversedLossIndex === 1) {
+        cardData[name].rank = ' 季軍'; // 倒數第二場負
+      } else if (reversedLossIndex === 2) {
+        cardData[name].rank = ' 8強'; // 倒數第三場負
+      } else if (reversedLossIndex === 3) {
+        cardData[name].rank = ' 16強'; // 倒數第四場負
+      } else if (reversedLossIndex === 4) {
+        cardData[name].rank = ' 32強'; // 倒數第五場負
+      } else if (reversedLossIndex === 5) {
+        cardData[name].rank = ' 64強'; // 倒數第六場負
+      } else if (reversedLossIndex === 6) {
+        cardData[name].rank = ' 128強'; // 倒數第七場負
+      } else {
+        cardData[name].rank = ''; // 其他情況，無名次
+      }
+    }
+
+    document.querySelector('.close').addEventListener('click', closeModal);
+
+    window.onclick = function(event) {
+      const modal = document.getElementById('editModal');
+      if (event.target === modal) {
+        modal.style.display = 'none';
+      }
+    };
+
+    async function init() {
+      const data = await fetchSheetData();
+      cardData = data.reduce((acc, item) => {
+        acc[item.姓名] = item;
+        return acc;
+      }, {});
+      if (data.length > 0) {
+        generateGroupedCards(data);
+      }
+    }
+
+    init();
     function filterCards() {
       const searchField = document.getElementById('searchField').value;
       const searchInput = document.getElementById('searchInput').value.toLowerCase();
@@ -291,15 +442,6 @@
         card.style.display = fieldValue.includes(searchInput) ? 'block' : 'none';
       }
     }
-
-    async function init() {
-      const data = await fetchSheetData();
-      if (data.length > 0) {
-        generateGroupedCards(data);
-      }
-    }
-
-    init();
   </script>
 </body>
 </html>
