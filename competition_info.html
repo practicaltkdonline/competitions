@@ -1,0 +1,344 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>比賽資料查詢（群組卡片形式 - Google Sheets API）</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 16px;
+      background-color: #f4f4f4;
+    }
+    h1 {
+      text-align: center;
+      font-size: 1.5rem;
+      margin-bottom: 16px;
+    }
+    .search-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    select, input {
+      padding: 8px;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .group {
+      margin-bottom: 16px;
+    }
+    .group-header {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #333;
+      margin: 8px 0;
+    }
+    .group-details {
+      font-size: 1rem;
+      color: #555;
+      margin: 4px 0;
+    }
+    .subgroup {
+      margin-bottom: 8px;
+    }
+    .subgroup-header {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #444;
+      margin: 8px 0;
+    }
+    .subgroup-details {
+      font-size: 1rem;
+      color: #555;
+      margin: 4px 0;
+    }
+    .card-container {
+      display: grid;
+      gap: 12px;
+    }
+    .card {
+      background-color: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .card .card-row {
+      display: flex;
+      justify-content: flex-start;
+      gap: 16px;
+      margin: 4px 0;
+    }
+    .card .name {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #333;
+    }
+    .card .details {
+      font-size: 0.9rem;
+      color: #555;
+    }
+    .card .match-info {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #eee;
+    }
+    .card .match-info .card-row {
+      font-size: 0.9rem;
+      color: #555;
+    }
+    .time-slot {
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
+    .loading, .error {
+      text-align: center;
+      font-size: 1rem;
+      color: #555;
+      margin: 16px 0;
+    }
+    .error {
+      color: #d32f2f;
+    }
+    @media (min-width: 600px) {
+      .card-container {
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      }
+      .search-container {
+        flex-direction: row;
+        gap: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>比賽資料查詢</h1>
+  <div class="search-container">
+    <select id="searchField">
+      <option value="姓名">姓名</option>
+      <option value="道場">道場</option>
+      <option value="組別">組別</option>
+      <option value="量級">量級</option>
+    </select>
+    <input type="text" id="searchInput" placeholder="輸入搜索關鍵詞..." oninput="filterCards()">
+  </div>
+  <div id="cardContainer" class="loading">正在從 Google Sheets 加載資料...</div>
+  <script>
+    // Google Sheets API URL
+    const spreadsheetId = '1dQsKKBrQsKCDTkfkDNKIlKwYUPhUD_85NLM-BfKgcsM';
+    const sheetId = '35854526';
+    const apiUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?gid=${sheetId}&tqx=out:json`;
+
+    // Fetch data from Google Sheets
+    async function fetchSheetData() {
+      try {
+        const response = await fetch(apiUrl);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const text = await response.text();
+        const jsonText = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\);/);
+        if (!jsonText) throw new Error('Invalid JSONP response format');
+        const jsonData = JSON.parse(jsonText[1]);
+        const rows = jsonData.table.rows;
+        const cols = jsonData.table.cols;
+
+        const headers = cols.map(col => col.label);
+        const data = rows.map(row => {
+          const item = {};
+          headers.forEach((header, index) => {
+            item[header] = row.c[index] ? row.c[index].v : '';
+          });
+          return item;
+        });
+
+        return data.filter(item => item.姓名 && item.組別);
+      } catch (error) {
+        console.error('Error fetching data:', error.message);
+        document.getElementById('cardContainer').innerHTML = `<div class="error">無法加載 Google Sheets 資料: ${error.message}. 請檢查工作表權限或網路。</div>`;
+        return [];
+      }
+    }
+
+    // Generate grouped cards
+    function generateGroupedCards(data) {
+      const container = document.getElementById('cardContainer');
+      container.innerHTML = '';
+
+      const groupedData = {};
+      data.forEach(item => {
+        const date = item.比賽日期 || '未知日期';
+        if (!groupedData[date]) groupedData[date] = {};
+        const event = item.項目 || '未知項目';
+        if (!groupedData[date][event]) groupedData[date][event] = {};
+        const time = item.時段 || '未知時段';
+        if (!groupedData[date][event][time]) groupedData[date][event][time] = {};
+        const venue = item.場區 || '未知場區';
+        if (!groupedData[date][event][time][venue]) groupedData[date][event][time][venue] = {};
+        const group = item.組別 || '未知組別';
+        if (!groupedData[date][event][time][venue][group]) groupedData[date][event][time][venue][group] = [];
+        groupedData[date][event][time][venue][group].push(item);
+      });
+
+      for (const date in groupedData) {
+        const dateDiv = document.createElement('div');
+        dateDiv.className = 'group';
+        // Get the first item's 地點 for this date
+        let firstItem = null;
+        for (const event in groupedData[date]) {
+          for (const time in groupedData[date][event]) {
+            for (const venue in groupedData[date][event][time]) {
+              for (const group in groupedData[date][event][time][venue]) {
+                if (groupedData[date][event][time][venue][group].length > 0) {
+                  firstItem = groupedData[date][event][time][venue][group][0];
+                  break;
+                }
+              }
+              if (firstItem) break;
+            }
+            if (firstItem) break;
+          }
+          if (firstItem) break;
+        }
+        const displayLocation = firstItem?.地點 || '未知地點';
+        dateDiv.innerHTML = `
+          <div class="group-header">${date} 地點：${displayLocation}</div>`;
+        for (const event in groupedData[date]) {
+          const eventDiv = document.createElement('div');
+          eventDiv.className = 'subgroup';
+          for (const time in groupedData[date][event]) {
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'subgroup';
+            // Get the first item across all venues and groups for this time slot
+            let firstItemTime = null;
+            for (const venue in groupedData[date][event][time]) {
+              for (const group in groupedData[date][event][time][venue]) {
+                if (groupedData[date][event][time][venue][group].length > 0) {
+                  firstItemTime = groupedData[date][event][time][venue][group][0];
+                  break;
+                }
+              }
+              if (firstItemTime) break;
+            }
+            const displayTime = firstItemTime?.比賽時間 || '未知時間';
+            const displayCheckIn = firstItemTime?.報到及過磅 || '未知報到時間';
+            timeDiv.innerHTML = `
+              <div class="subgroup-header">${event} ${time}</div>
+              <div class="subgroup-details">比賽時間：${displayTime}</div>
+              <div class="subgroup-details">報到及過磅：${displayCheckIn}</div>`;
+            for (const venue in groupedData[date][event][time]) {
+              const venueDiv = document.createElement('div');
+              venueDiv.className = 'subgroup';
+              venueDiv.innerHTML = `<div class="subgroup-header">${venue}</div>`;
+              for (const group in groupedData[date][event][time][venue]) {
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'subgroup';
+                groupDiv.innerHTML = `<div class="subgroup-header">${group}</div><div class="card-container"></div>`;
+                groupedData[date][event][time][venue][group].forEach(item => {
+                  const card = document.createElement('div');
+                  card.className = 'card';
+                  card.setAttribute('data-姓名', item.姓名 || '');
+                  card.setAttribute('data-道場', item.道場 || '');
+                  card.setAttribute('data-組別', item.組別 || '');
+                  card.setAttribute('data-量級', item.量級 || '');
+                  card.innerHTML = `
+                    <div class="card-row">
+                      <span class="name">${item.姓名 || '未知姓名'}</span>
+                      <span class="details">${item.道場 || '-'}</span>
+                    </div>
+                    <div class="card-row">
+                      <span class="details">${item.量級 || '-'}</span>
+                      <span class="details">${item.重量 || '-'}</span>
+                    </div>
+                    <div class="match-info">
+                      ${item.項目 === '搏擊' ? `
+                        <div class="card-row"><span class="details">${item.第一場藍紅方 ? (item.第一場藍紅方 === 'r' ? '紅方' : '藍方') + ', 場次 ' + (item.第一場場次 || '-') + ', 對手 ' + (item.第一場對手 || '-') : '-'}</span></div>
+                        <div class="card-row"><span class="details">${item.第二場藍紅方 ? (item.第二場藍紅方 === 'r' ? '紅方' : '藍方') + ', 場次 ' + (item.第二場場次 || '-') + ', 對手 ' + (item.第二場對手 || '-') : '-'}</span></div>
+                        <div class="card-row"><span class="details">${item.第三場藍紅方 ? (item.第三場藍紅方 === 'r' ? '紅方' : '藍方') + ', 場次 ' + (item.第三場場次 || '-') + ', 對手 ' + (item.第三場對手 || '-') : '-'}</span></div>
+                        <div class="card-row"><span class="details">${item.第四場藍紅方 ? (item.第四場藍紅方 === 'r' ? '紅方' : '藍方') + ', 場次 ' + (item.第四場場次 || '-') + ', 對手 ' + (item.第四場對手 || '-') : '-'}</span></div>
+                        ${item.第五場藍紅方 ? `<div class="card-row"><span class="details">${item.第五場藍紅方 === 'r' ? '紅方' : '藍方'}, 場次 ${item.第五場場次 || '-'}, 對手 ${item.第五場對手 || '-'}</span></div>` : ''}
+                        ${item.第六場藍紅方 ? `<div class="card-row"><span class="details">${item.第六場藍紅方 === 'r' ? '紅方' : '藍方'}, 場次 ${item.第六場場次 || '-'}, 對手 ${item.第六場對手 || '-'}</span></div>` : ''}
+                        ${item.第七場藍紅方 ? `<div class="card-row"><span class="details">${item.第七場藍紅方 === 'r' ? '紅方' : '藍方'}, 場次 ${item.第七場場次 || '-'}, 對手 ${item.第七場對手 || '-'}</span></div>` : ''}
+                      ` : `
+                        <div class="card-row"><span class="details">${item.第一場場次 ? '第' + item.第一場場次 + '組' : '-'}</span></div>
+                        <div class="card-row"><span class="details">${item.第二場場次 ? '第' + item.第二場場次 + '組' : '-'}</span></div>
+                        <div class="card-row"><span class="details">${item.第三場場次 ? '第' + item.第三場場次 + '組' : '-'}</span></div>
+                      `}
+                    </div>`;
+                  groupDiv.querySelector('.card-container').appendChild(card);
+                });
+                venueDiv.appendChild(groupDiv);
+              }
+              timeDiv.appendChild(venueDiv);
+            }
+            eventDiv.appendChild(timeDiv);
+          }
+          dateDiv.appendChild(eventDiv);
+        }
+        container.appendChild(dateDiv);
+      }
+    }
+
+    function filterCards() {
+      const searchField = document.getElementById('searchField').value;
+      const searchInput = document.getElementById('searchInput').value.toLowerCase();
+      const cards = document.getElementsByClassName('card');
+
+      for (let card of cards) {
+        const fieldValue = (card.getAttribute(`data-${searchField}`) || '').toLowerCase();
+        card.style.display = fieldValue.includes(searchInput) ? 'block' : 'none';
+      }
+    }
+
+    async function init() {
+      const data = await fetchSheetData();
+      if (data.length > 0) {
+        generateGroupedCards(data);
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
