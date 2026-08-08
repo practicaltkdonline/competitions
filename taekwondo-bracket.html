@@ -7,7 +7,10 @@
   <style>
     :root {
       --primary: #1a365d;
-      --accent: #c53030;
+      --blue: #2b6cb0;
+      --blue-bg: #ebf8ff;
+      --red: #c53030;
+      --red-bg: #fff5f5;
       --success: #276749;
       --warning: #c05621;
       --muted: #718096;
@@ -93,7 +96,7 @@
     }
 
     .container {
-      max-width: 900px;
+      max-width: 920px;
       margin: 0 auto;
       padding: 16px;
     }
@@ -181,32 +184,43 @@
     }
 
     .athlete {
-      padding: 14px 12px;
+      padding: 12px 12px 12px 14px;
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 3px;
       position: relative;
+      border-left: 5px solid transparent;
     }
 
-    .athlete.winner {
-      background: #f0fff4;
+    .athlete.blue {
+      border-left-color: var(--blue);
+      background: linear-gradient(90deg, var(--blue-bg) 0%, #ffffff 45%);
     }
 
-    .athlete.winner::before {
+    .athlete.red {
+      border-left-color: var(--red);
+      background: linear-gradient(90deg, var(--red-bg) 0%, #ffffff 45%);
+    }
+
+    .athlete.winner .athlete-name {
+      color: var(--success);
+    }
+
+    .athlete.winner::after {
       content: "勝";
       position: absolute;
-      top: 6px;
-      right: 8px;
+      top: 8px;
+      right: 10px;
       background: var(--success);
       color: white;
       font-size: 0.7rem;
       font-weight: 700;
-      padding: 1px 6px;
+      padding: 1px 7px;
       border-radius: 4px;
     }
 
     .athlete.loser {
-      opacity: 0.65;
+      opacity: 0.55;
     }
 
     .athlete-name {
@@ -214,11 +228,32 @@
       font-weight: 700;
       color: #1a202c;
       line-height: 1.3;
+      padding-right: 28px;
     }
 
     .athlete-meta {
       font-size: 0.8rem;
       color: var(--muted);
+    }
+
+    .color-badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    .color-badge.blue {
+      background: var(--blue);
+      color: white;
+    }
+
+    .color-badge.red {
+      background: var(--red);
+      color: white;
     }
 
     .vs {
@@ -227,41 +262,46 @@
       justify-content: center;
       font-weight: 700;
       color: var(--muted);
-      font-size: 0.9rem;
-      padding: 0 4px;
+      font-size: 0.85rem;
+      padding: 0 6px;
       background: #f8fafc;
       border-left: 1px solid var(--border);
       border-right: 1px solid var(--border);
+      min-width: 36px;
+    }
+
+    .bye-card .athletes {
+      grid-template-columns: 1fr;
     }
 
     .bye-card .athlete {
-      grid-column: 1 / -1;
       text-align: center;
-      padding: 18px;
+      padding: 16px;
+      border-left-width: 0;
+      background: #f0fff4;
     }
 
     .bye-label {
       display: inline-block;
-      margin-top: 6px;
-      background: #ebf8ff;
-      color: #2b6cb0;
+      margin-top: 4px;
+      background: #c6f6d5;
+      color: #276749;
       font-size: 0.8rem;
       font-weight: 600;
       padding: 2px 10px;
       border-radius: 6px;
     }
 
+    .empty-name {
+      color: var(--muted);
+      font-style: italic;
+      font-weight: 500;
+    }
+
     .empty-state {
       text-align: center;
       padding: 48px 20px;
       color: var(--muted);
-    }
-
-    .empty-state svg {
-      width: 48px;
-      height: 48px;
-      margin-bottom: 12px;
-      opacity: 0.5;
     }
 
     .loading {
@@ -275,41 +315,51 @@
       color: #c53030;
       padding: 16px;
       border-radius: 10px;
-      margin: 16px;
+      margin: 16px 0;
       border: 1px solid #feb2b2;
+      font-size: 0.9rem;
     }
 
-    /* Print styles */
     @media print {
       body { background: white; }
-      .header { position: static; box-shadow: none; background: #1a365d !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .header {
+        position: static;
+        box-shadow: none;
+        background: #1a365d !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
       .controls button, .last-update { display: none; }
       .round-tabs { display: none; }
-      .match-card { break-inside: avoid; box-shadow: none; border: 1px solid #ccc; }
-      .athlete.winner { background: #e6fffa !important; -webkit-print-color-adjust: exact; }
+      .match-card {
+        break-inside: avoid;
+        box-shadow: none;
+        border: 1px solid #ccc;
+      }
+      .athlete.blue, .athlete.red, .athlete.winner::after {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
     }
 
-    @media (max-width: 500px) {
+    @media (max-width: 520px) {
       .athlete-name { font-size: 0.95rem; }
       .athlete-meta { font-size: 0.75rem; }
       .header h1 { font-size: 1.1rem; }
+      .athlete { padding: 10px 10px 10px 12px; }
     }
   </style>
 </head>
 <body>
   <div class="header">
-    <h1 id="pageTitle">跆拳道搏擊出線表</h1>
+    <h1>跆拳道搏擊出線表</h1>
     <div class="sub">即時賽程結果 · 自動更新</div>
     <div class="controls">
       <select id="categorySelect">
         <option value="">載入中...</option>
       </select>
-      <button onclick="loadData(true)" title="立即重新整理">
-        ↻ 重新整理
-      </button>
-      <button onclick="window.print()" title="列印或另存 PDF">
-        🖨 列印 / PDF
-      </button>
+      <button onclick="loadData(true)" title="立即重新整理">↻ 重新整理</button>
+      <button onclick="window.print()" title="列印或另存 PDF">🖨 列印 / PDF</button>
       <div class="last-update" id="lastUpdate">—</div>
     </div>
   </div>
@@ -323,54 +373,73 @@
   </div>
 
   <script>
-    // ========== 設定區 ==========
-    // 請把下面這行改成你的 Google Sheet ID（網址中 /d/ 後面那一段）
+    // ========== 設定 ==========
     const SHEET_ID = "1aepwSss-KXGhqOYg0s29m8VyaXaOnOKuVOaY9yYZrQs";
-    const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&t=${Date.now()}`;
-    const REFRESH_INTERVAL = 20000; // 20 秒自動刷新
+    const REFRESH_INTERVAL = 20000;
 
-    // 輪次排序優先順序（數字越小越前面）
     const ROUND_ORDER = {
       "64強": 1, "32強": 2, "16強": 3, "8強": 4,
       "4強": 5, "準決賽": 5, "決賽": 6, "季軍賽": 7
     };
 
-    // ========== 狀態 ==========
     let allData = [];
     let categories = [];
     let currentCategory = "";
     let currentRound = "";
     let refreshTimer = null;
 
-    // ========== CSV 解析（簡單版，足以應付目前格式） ==========
+    // ========== 改進的 CSV 解析（支援有/無引號） ==========
     function parseCSV(text) {
-      const lines = text.trim().split(/\r?\n/);
+      const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim().split("\n");
       if (lines.length < 2) return [];
-      const headers = lines[0].split(",").map(h => h.trim());
+
+      function parseLine(line) {
+        const result = [];
+        let current = "";
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          if (char === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+              current += '"';
+              i++;
+            } else {
+              inQuotes = !inQuotes;
+            }
+          } else if (char === "," && !inQuotes) {
+            result.push(current.trim());
+            current = "";
+          } else {
+            current += char;
+          }
+        }
+        result.push(current.trim());
+        return result;
+      }
+
+      const headers = parseLine(lines[0]).map(h => h.replace(/^"|"$/g, "").trim());
       const rows = [];
+
       for (let i = 1; i < lines.length; i++) {
-        // 簡單處理：不支援欄位內有逗號（目前資料沒有）
-        const cols = lines[i].split(",");
-        if (cols.length < headers.length) continue;
+        if (!lines[i].trim()) continue;
+        const cols = parseLine(lines[i]);
         const obj = {};
         headers.forEach((h, idx) => {
-          obj[h] = (cols[idx] || "").trim();
+          let val = (cols[idx] || "").replace(/^"|"$/g, "").trim();
+          obj[h] = val;
         });
-        rows.push(obj);
+        if (obj["量級"] && obj["場次編號"]) {
+          rows.push(obj);
+        }
       }
       return rows;
     }
 
-    // ========== 資料處理 ==========
     function processData(rows) {
-      // 過濾掉空行
-      allData = rows.filter(r => r["量級"] && r["場次編號"]);
-
-      // 抽出所有量級
+      allData = rows;
       const catSet = new Set(allData.map(r => r["量級"]));
-      categories = Array.from(catSet).sort();
+      categories = Array.from(catSet).sort((a, b) => a.localeCompare(b, "zh-Hant"));
 
-      // 更新下拉選單
       const select = document.getElementById("categorySelect");
       select.innerHTML = "";
       if (categories.length === 0) {
@@ -384,7 +453,6 @@
         select.appendChild(opt);
       });
 
-      // 預設選第一個量級
       if (!currentCategory || !categories.includes(currentCategory)) {
         currentCategory = categories[0];
       }
@@ -405,7 +473,6 @@
 
     function getMatches(cat, round) {
       const rows = allData.filter(r => r["量級"] === cat && r["輪次"] === round);
-      // 用場次編號分組
       const map = new Map();
       rows.forEach(r => {
         const id = r["場次編號"];
@@ -413,18 +480,24 @@
         map.get(id).push(r);
       });
 
-      // 轉成陣列並依場次編號排序
       const matches = Array.from(map.entries()).map(([id, athletes]) => {
-        // 嘗試把有名字的排前面，或依選手編號
-        athletes.sort((a, b) => (a["選手編號"] || "").localeCompare(b["選手編號"] || ""));
-        return { id, athletes, status: athletes[0]["狀態"] || "", court: athletes[0]["場地"] || "", time: athletes[0]["時間"] || "" };
+        athletes.sort((a, b) => {
+          const order = { "藍甲": 0, "紅甲": 1 };
+          return (order[a["藍/紅"]] ?? 2) - (order[b["藍/紅"]] ?? 2);
+        });
+        return {
+          id,
+          athletes,
+          status: athletes[0]["狀態"] || "",
+          court: athletes[0]["場地"] || "",
+          time: athletes[0]["時間"] || ""
+        };
       });
 
       matches.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
       return matches;
     }
 
-    // ========== 渲染 ==========
     function renderRoundTabs() {
       const tabs = document.getElementById("roundTabs");
       const rounds = getRoundsForCategory(currentCategory);
@@ -449,27 +522,36 @@
       });
     }
 
+    function getDisplayName(athlete) {
+      const name = (athlete["選手姓名"] || "").trim();
+      if (!name || name.toLowerCase() === "bye") return null;
+      return name;
+    }
+
     function renderMatches() {
       const content = document.getElementById("content");
       const matches = getMatches(currentCategory, currentRound);
 
       if (matches.length === 0) {
-        content.innerHTML = `
-          <div class="empty-state">
-            <div>目前沒有「${currentCategory}」的「${currentRound}」資料</div>
-          </div>`;
+        content.innerHTML = `<div class="empty-state"><div>目前沒有「${currentCategory}」的「${currentRound}」資料</div></div>`;
         return;
       }
 
       let html = '<div class="match-list">';
 
       matches.forEach(m => {
-        const isBye = m.athletes.length === 1;
+        const validAthletes = m.athletes.filter(a => {
+          const n = (a["選手姓名"] || "").trim();
+          return n && n.toLowerCase() !== "bye";
+        });
+
+        const pureBye = m.athletes.length === 1 || (m.athletes.length === 2 && validAthletes.length <= 1);
+
         const statusClass = m.status.includes("已完成") ? "done" :
                             m.status.includes("進行中") ? "live" : "pending";
 
         html += `
-          <div class="match-card ${isBye ? "bye-card" : ""}">
+          <div class="match-card ${pureBye ? "bye-card" : ""}">
             <div class="match-header">
               <div>
                 <span class="match-id">${m.id}</span>
@@ -480,28 +562,49 @@
             </div>
             <div class="athletes">`;
 
-        if (isBye) {
-          const a = m.athletes[0];
+        if (pureBye) {
+          const a = validAthletes[0] || m.athletes[0];
+          const colorClass = (a["藍/紅"] || "").includes("藍") ? "blue" : 
+                             (a["藍/紅"] || "").includes("紅") ? "red" : "";
+          const name = getDisplayName(a);
           html += `
-            <div class="athlete">
-              <div class="athlete-name">${a["選手姓名"] || "—"}</div>
-              <div class="athlete-meta">${[a["選手道場"], a["選手所屬教練"], a["選手編號"]].filter(Boolean).join(" · ")}</div>
+            <div class="athlete ${colorClass}">
+              <div class="athlete-name">${name || "輪空"}</div>
+              ${name ? `<div class="athlete-meta">${[a["選手道場"], a["選手所屬教練"], a["選手編號"]].filter(Boolean).join(" · ")}</div>` : ""}
               <div class="bye-label">輪空 Bye</div>
             </div>`;
         } else {
           m.athletes.forEach((a, idx) => {
+            const color = a["藍/紅"] || "";
+            const isBlue = color.includes("藍");
+            const isRed = color.includes("紅");
+            const colorClass = isBlue ? "blue" : (isRed ? "red" : "");
             const isWinner = a["勝/負"] === "勝方";
             const isLoser = a["勝/負"] === "負方";
-            const cls = isWinner ? "winner" : (isLoser ? "loser" : "");
+            const cls = [colorClass, isWinner ? "winner" : "", isLoser ? "loser" : ""].filter(Boolean).join(" ");
+
+            const name = getDisplayName(a);
+            let nameHtml;
+            if (name) {
+              nameHtml = name;
+            } else {
+              const prev = a["上場場次"] || "";
+              nameHtml = (prev && prev !== "N/A") 
+                ? `<span class="empty-name">（${prev} 勝方）</span>` 
+                : `<span class="empty-name">待定</span>`;
+            }
+
+            const badge = isBlue ? '<span class="color-badge blue">藍</span>' :
+                          isRed ? '<span class="color-badge red">紅</span>' : "";
+
             html += `
               <div class="athlete ${cls}">
-                <div class="athlete-name">${a["選手姓名"] || "—"}</div>
+                <div class="athlete-name">${badge}${nameHtml}</div>
                 <div class="athlete-meta">${[a["選手道場"], a["選手所屬教練"]].filter(Boolean).join(" · ")}</div>
                 <div class="athlete-meta">${a["選手編號"] || ""}</div>
               </div>`;
-            if (idx === 0) {
-              html += `<div class="vs">VS</div>`;
-            }
+
+            if (idx === 0) html += `<div class="vs">VS</div>`;
           });
         }
 
@@ -517,24 +620,23 @@
       renderMatches();
     }
 
-    // ========== 載入 ==========
-    async function loadData(force = false) {
+    async function loadData() {
       const errorBox = document.getElementById("errorBox");
       errorBox.style.display = "none";
 
       try {
-        // 加時間戳避免快取
         const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&_=${Date.now()}`;
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const text = await res.text();
 
-        // 簡單檢查是否拿到 HTML 錯誤頁
-        if (text.includes("<!DOCTYPE") || text.includes("<html")) {
+        if (text.includes("<!DOCTYPE") || text.includes("<html") || text.trim().startsWith("<")) {
           throw new Error("無法讀取 Google Sheet，請確認已設為「知道連結的任何人都可以檢視」");
         }
 
         const rows = parseCSV(text);
+        if (rows.length === 0) throw new Error("解析後沒有有效資料列，請檢查工作表1內容");
+
         processData(rows);
         updateUI();
 
@@ -545,32 +647,29 @@
         console.error(err);
         errorBox.style.display = "block";
         errorBox.innerHTML = `<strong>載入失敗</strong><br>${err.message}<br><br>
-          請確認：<br>
+          <strong>請確認：</strong><br>
           1. Google Sheet 已分享為「知道連結的任何人都可以檢視」<br>
-          2. 網址中的 Sheet ID 正確<br>
+          2. 這個網頁是用 <code>https://</code> 或本地伺服器打開（不要直接雙擊檔案）<br>
           3. 網路連線正常`;
         document.getElementById("content").innerHTML = "";
       }
     }
 
-    // ========== 事件 ==========
     document.getElementById("categorySelect").addEventListener("change", (e) => {
       currentCategory = e.target.value;
-      currentRound = ""; // 重置輪次
+      currentRound = "";
       updateUI();
     });
 
-    // 啟動
     loadData();
-    refreshTimer = setInterval(() => loadData(), REFRESH_INTERVAL);
+    refreshTimer = setInterval(loadData, REFRESH_INTERVAL);
 
-    // 頁面可見時才刷新，節省資源
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
         clearInterval(refreshTimer);
       } else {
         loadData();
-        refreshTimer = setInterval(() => loadData(), REFRESH_INTERVAL);
+        refreshTimer = setInterval(loadData, REFRESH_INTERVAL);
       }
     });
   </script>
