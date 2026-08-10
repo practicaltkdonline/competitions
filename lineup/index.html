@@ -256,22 +256,28 @@
     .athlete.winner::after {
       content: "WIN";
       position: absolute;
-      bottom: 8px;
-      font-size: 0.65rem;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.7rem;
       font-weight: 800;
       letter-spacing: 1px;
       color: #4ade80;
       background: rgba(0,0,0,0.55);
-      padding: 2px 7px;
-      border-radius: 4px;
+      padding: 3px 8px;
+      border-radius: 5px;
+      z-index: 2;
     }
 
-    .athlete.blue.winner::after { left: 10px; }
-    .athlete.red.winner::after { right: 10px; }
+    /* 藍勝：放在藍方區域中間偏右（靠近中央） */
+    .athlete.blue.winner::after {
+      right: 10px;
+      left: auto;
+    }
 
-    /* 勝方姓名上方留空，避免被擋 */
-    .athlete.winner .athlete-name {
-      padding-top: 2px;
+    /* 紅勝：放在紅方區域中間偏左（靠近中央） */
+    .athlete.red.winner::after {
+      left: 10px;
+      right: auto;
     }
 
     /* 負方變暗 */
