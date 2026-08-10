@@ -863,6 +863,63 @@
       box-shadow: 0 0 10px rgba(37, 99, 235, 0.2);
     }
 
+
+    /* Collapsible filters */
+    .filter-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      cursor: pointer;
+      user-select: none;
+      border-top: 1px solid var(--border);
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .filter-toggle:active {
+      background: rgba(255,255,255,0.03);
+    }
+    .filter-toggle-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .filter-toggle-badge {
+      display: none;
+      background: var(--blue);
+      color: white;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 999px;
+      min-width: 1.2em;
+      text-align: center;
+    }
+    .filter-toggle-badge.show {
+      display: inline-block;
+    }
+    .filter-toggle-arrow {
+      transition: transform 0.2s;
+      font-size: 0.75rem;
+    }
+    .filter-toggle.open .filter-toggle-arrow {
+      transform: rotate(180deg);
+    }
+    .filter-panel {
+      display: none;
+      padding: 0 16px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .filter-panel.open {
+      display: block;
+    }
+    .filter-panel .filters {
+      margin-top: 0;
+    }
+    .filter-panel .filter-toggle-row {
+      margin-top: 8px;
+    }
+
   </style>
 </head>
 <body>
@@ -892,37 +949,44 @@
       <span id="lastUpdate">—</span>
     </div>
     <div class="live-board" id="liveBoard"></div>
-    <div class="filters">
-      <select id="filterCategory">
-        <option value="">全部量級</option>
-      </select>
-      <select id="filterRound">
-        <option value="">全部輪次</option>
-      </select>
-      <select id="filterVenue">
-        <option value="">全部場區</option>
-      </select>
-      <select id="filterStatus">
-        <option value="">全部狀態</option>
-        <option value="未開始">未開始</option>
-        <option value="召集中">召集中</option>
-        <option value="下一場">下一場</option>
-        <option value="進行中">進行中</option>
-        <option value="已完成">已完成</option>
-      </select>
-      <div class="search-wrap">
-        <input type="text" id="filterSearch" placeholder="搜尋姓名 / 場次 / 道場..." autocomplete="off">
-        <div class="suggest-list" id="suggestList"></div>
+    <div class="filter-toggle" id="filterToggle" onclick="toggleFilterPanel()">
+      <div class="filter-toggle-left">
+        <span>篩選與搜尋</span>
+        <span class="filter-toggle-badge" id="filterBadge">0</span>
+      </div>
+      <span class="filter-toggle-arrow">▾</span>
+    </div>
+    <div class="filter-panel" id="filterPanel">
+      <div class="filters">
+        <select id="filterCategory">
+          <option value="">全部量級</option>
+        </select>
+        <select id="filterRound">
+          <option value="">全部輪次</option>
+        </select>
+        <select id="filterVenue">
+          <option value="">全部場區</option>
+        </select>
+        <select id="filterStatus">
+          <option value="">全部狀態</option>
+          <option value="未開始">未開始</option>
+          <option value="召集中">召集中</option>
+          <option value="下一場">下一場</option>
+          <option value="進行中">進行中</option>
+          <option value="已完成">已完成</option>
+        </select>
+        <div class="search-wrap">
+          <input type="text" id="filterSearch" placeholder="搜尋姓名 / 場次 / 道場..." autocomplete="off">
+          <div class="suggest-list" id="suggestList"></div>
+        </div>
+      </div>
+      <div class="filter-toggle-row">
+        <label class="toggle-label">
+          <input type="checkbox" id="hideCompleted">
+          <span class="toggle-text">隱藏已完成</span>
+        </label>
       </div>
     </div>
-    <div class="filter-toggle-row">
-      <label class="toggle-label">
-        <input type="checkbox" id="hideCompleted">
-        <span class="toggle-text">隱藏已完成</span>
-      </label>
-    </div>
-  </div>
-
   <div class="filter-count" id="filterCount"></div>
   <div class="match-list" id="matchList">
     <div class="loading-state">
@@ -1111,6 +1175,29 @@
     }
 
 
+
+    function toggleFilterPanel() {
+      const panel = document.getElementById('filterPanel');
+      const toggle = document.getElementById('filterToggle');
+      if (!panel) return;
+      const open = panel.classList.toggle('open');
+      if (toggle) toggle.classList.toggle('open', open);
+    }
+
+    function updateFilterBadge() {
+      const badge = document.getElementById('filterBadge');
+      if (!badge) return;
+      let n = 0;
+      if (document.getElementById('filterCategory')?.value) n++;
+      if (document.getElementById('filterRound')?.value) n++;
+      if (document.getElementById('filterVenue')?.value) n++;
+      if (document.getElementById('filterStatus')?.value) n++;
+      if (document.getElementById('filterSearch')?.value.trim()) n++;
+      if (document.getElementById('hideCompleted')?.checked) n++;
+      badge.textContent = n;
+      badge.classList.toggle('show', n > 0);
+    }
+
     function updateFilterOptions() {
       const categories = [...new Set(allMatches.map(m => m.category).filter(Boolean))].sort();
       const rounds = [...new Set(allMatches.map(m => m.round).filter(Boolean))];
@@ -1182,6 +1269,7 @@
     function renderMatches() {
       const list = document.getElementById('matchList');
       const filtered = getFilteredMatches();
+      updateFilterBadge();
 
       document.getElementById('filterCount').textContent = 
         `顯示 ${filtered.length} / ${allMatches.length} 場`;
