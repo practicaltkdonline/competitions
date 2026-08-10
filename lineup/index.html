@@ -449,9 +449,77 @@
       color: var(--text-muted);
       padding: 0 16px 8px;
     }
+
+    /* Pull to refresh */
+    .ptr-indicator {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 0;
+      overflow: hidden;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 50;
+      transition: height 0.15s ease;
+    }
+
+    .ptr-content {
+      padding-bottom: 12px;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .ptr-spinner {
+      width: 22px;
+      height: 22px;
+      border: 2.5px solid var(--border);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    .ptr-arrow {
+      font-size: 1.2rem;
+      transition: transform 0.2s;
+    }
+
+    body.ptr-pulling .ptr-indicator {
+      height: var(--ptr-height, 0px);
+    }
+
+    body.ptr-pulling .ptr-content {
+      opacity: 1;
+    }
+
+    body.ptr-refreshing .ptr-indicator {
+      height: 56px !important;
+    }
+
+    body.ptr-refreshing .ptr-content {
+      opacity: 1;
+    }
+
   </style>
 </head>
 <body>
+
+  <div class="ptr-indicator" id="ptrIndicator">
+    <div class="ptr-content">
+      <div class="ptr-arrow" id="ptrArrow">↓</div>
+      <div class="ptr-spinner" id="ptrSpinner" style="display:none;"></div>
+      <span id="ptrText">下拉重新整理</span>
+    </div>
+  </div>
+
   <div class="header">
     <div class="header-top">
       <h1>跆拳道搏擊出線表</h1>
@@ -773,6 +841,101 @@
         timer = setTimeout(() => fn.apply(this, args), delay);
       };
     }
+
+    // ========== Pull to Refresh ==========
+    (function() {
+      const THRESHOLD = 70;
+      let startY = 0;
+      let currentY = 0;
+      let pulling = false;
+      let refreshing = false;
+
+      const indicator = document.getElementById('ptrIndicator');
+      const arrow = document.getElementById('ptrArrow');
+      const spinner = document.getElementById('ptrSpinner');
+      const text = document.getElementById('ptrText');
+
+      function isAtTop() {
+        return window.scrollY <= 0;
+      }
+
+      document.addEventListener('touchstart', (e) => {
+        if (refreshing || isUpdating) return;
+        if (!isAtTop()) return;
+        startY = e.touches[0].clientY;
+        pulling = true;
+      }, { passive: true });
+
+      document.addEventListener('touchmove', (e) => {
+        if (!pulling || refreshing || isUpdating) return;
+        if (!isAtTop()) {
+          pulling = false;
+          resetPtr();
+          return;
+        }
+
+        currentY = e.touches[0].clientY;
+        const diff = currentY - startY;
+
+        if (diff > 0) {
+          // prevent overscroll bounce a bit
+          const height = Math.min(diff * 0.45, 100);
+          document.body.classList.add('ptr-pulling');
+          document.body.style.setProperty('--ptr-height', height + 'px');
+
+          if (height >= THRESHOLD) {
+            arrow.style.transform = 'rotate(180deg)';
+            text.textContent = '放開以重新整理';
+          } else {
+            arrow.style.transform = 'rotate(0deg)';
+            text.textContent = '下拉重新整理';
+          }
+        }
+      }, { passive: true });
+
+      document.addEventListener('touchend', async () => {
+        if (!pulling || refreshing) return;
+        pulling = false;
+
+        const diff = currentY - startY;
+        const height = Math.min(diff * 0.45, 100);
+
+        if (height >= THRESHOLD && !isUpdating) {
+          // trigger refresh
+          refreshing = true;
+          document.body.classList.remove('ptr-pulling');
+          document.body.classList.add('ptr-refreshing');
+          arrow.style.display = 'none';
+          spinner.style.display = 'block';
+          text.textContent = '更新中...';
+
+          try {
+            await loadData(true);
+            showToast('已更新', 'success');
+          } catch (e) {}
+
+          // short delay for visual feedback
+          setTimeout(() => {
+            refreshing = false;
+            resetPtr();
+          }, 400);
+        } else {
+          resetPtr();
+        }
+      });
+
+      function resetPtr() {
+        document.body.classList.remove('ptr-pulling', 'ptr-refreshing');
+        document.body.style.removeProperty('--ptr-height');
+        arrow.style.display = 'block';
+        arrow.style.transform = 'rotate(0deg)';
+        spinner.style.display = 'none';
+        text.textContent = '下拉重新整理';
+        startY = 0;
+        currentY = 0;
+      }
+    })();
+
   </script>
 </body>
 </html>
