@@ -36,6 +36,7 @@
       color: var(--text);
       min-height: 100vh;
       padding-bottom: 80px;
+      overscroll-behavior-y: contain;
     }
 
     /* Header */
@@ -255,18 +256,23 @@
     .athlete.winner::after {
       content: "WIN";
       position: absolute;
-      top: 6px;
+      bottom: 8px;
       font-size: 0.65rem;
       font-weight: 800;
       letter-spacing: 1px;
       color: #4ade80;
-      background: rgba(0,0,0,0.45);
-      padding: 2px 6px;
+      background: rgba(0,0,0,0.55);
+      padding: 2px 7px;
       border-radius: 4px;
     }
 
-    .athlete.blue.winner::after { left: 8px; }
-    .athlete.red.winner::after { right: 8px; }
+    .athlete.blue.winner::after { left: 10px; }
+    .athlete.red.winner::after { right: 10px; }
+
+    /* 勝方姓名上方留空，避免被擋 */
+    .athlete.winner .athlete-name {
+      padding-top: 2px;
+    }
 
     /* 負方變暗 */
     .athlete.loser {
@@ -842,31 +848,33 @@
       };
     }
 
-    // ========== Pull to Refresh ==========
+    // ========== Pull to Refresh (支援 PWA 主畫面模式) ==========
     (function() {
-      const THRESHOLD = 70;
+      const THRESHOLD = 65;
       let startY = 0;
       let currentY = 0;
       let pulling = false;
       let refreshing = false;
 
-      const indicator = document.getElementById('ptrIndicator');
       const arrow = document.getElementById('ptrArrow');
       const spinner = document.getElementById('ptrSpinner');
       const text = document.getElementById('ptrText');
 
       function isAtTop() {
-        return window.scrollY <= 0;
+        return (window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0) <= 2;
       }
 
-      document.addEventListener('touchstart', (e) => {
+      // 使用 touchstart / touchmove / touchend 在 document 與 body 都監聽，提高 PWA 相容性
+      function onTouchStart(e) {
         if (refreshing || isUpdating) return;
         if (!isAtTop()) return;
+        if (e.touches.length !== 1) return;
         startY = e.touches[0].clientY;
+        currentY = startY;
         pulling = true;
-      }, { passive: true });
+      }
 
-      document.addEventListener('touchmove', (e) => {
+      function onTouchMove(e) {
         if (!pulling || refreshing || isUpdating) return;
         if (!isAtTop()) {
           pulling = false;
@@ -877,9 +885,11 @@
         currentY = e.touches[0].clientY;
         const diff = currentY - startY;
 
-        if (diff > 0) {
-          // prevent overscroll bounce a bit
-          const height = Math.min(diff * 0.45, 100);
+        if (diff > 8) {
+          // 阻止瀏覽器預設的 overscroll 行為（部分 PWA 需要）
+          if (e.cancelable) e.preventDefault();
+
+          const height = Math.min(diff * 0.5, 90);
           document.body.classList.add('ptr-pulling');
           document.body.style.setProperty('--ptr-height', height + 'px');
 
@@ -891,17 +901,16 @@
             text.textContent = '下拉重新整理';
           }
         }
-      }, { passive: true });
+      }
 
-      document.addEventListener('touchend', async () => {
+      async function onTouchEnd() {
         if (!pulling || refreshing) return;
         pulling = false;
 
         const diff = currentY - startY;
-        const height = Math.min(diff * 0.45, 100);
+        const height = Math.min(diff * 0.5, 90);
 
         if (height >= THRESHOLD && !isUpdating) {
-          // trigger refresh
           refreshing = true;
           document.body.classList.remove('ptr-pulling');
           document.body.classList.add('ptr-refreshing');
@@ -914,15 +923,20 @@
             showToast('已更新', 'success');
           } catch (e) {}
 
-          // short delay for visual feedback
           setTimeout(() => {
             refreshing = false;
             resetPtr();
-          }, 400);
+          }, 450);
         } else {
           resetPtr();
         }
-      });
+      }
+
+      // passive: false 才能 preventDefault（對部分 iOS PWA 重要）
+      document.addEventListener('touchstart', onTouchStart, { passive: true });
+      document.addEventListener('touchmove', onTouchMove, { passive: false });
+      document.addEventListener('touchend', onTouchEnd, { passive: true });
+      document.addEventListener('touchcancel', onTouchEnd, { passive: true });
 
       function resetPtr() {
         document.body.classList.remove('ptr-pulling', 'ptr-refreshing');
