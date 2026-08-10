@@ -633,6 +633,171 @@
       100% { box-shadow: 0 0 0 2px rgba(59,130,246,0.45), 0 0 20px rgba(59,130,246,0.2); }
     }
 
+
+    /* Athlete path */
+    .name-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .athlete.red .name-row {
+      flex-direction: row-reverse;
+    }
+    .path-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      background: rgba(148,163,184,0.2);
+      color: #94a3b8;
+      font-size: 0.65rem;
+      cursor: pointer;
+      flex-shrink: 0;
+      line-height: 1;
+      border: none;
+      padding: 0;
+    }
+    .path-icon:active {
+      background: rgba(59,130,246,0.4);
+      color: #93c5fd;
+    }
+
+    .path-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 250;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .path-modal-overlay.show {
+      display: flex;
+    }
+    .path-modal {
+      background: var(--card-bg);
+      width: 100%;
+      max-width: 420px;
+      max-height: 80vh;
+      border-radius: 20px 20px 0 0;
+      padding: 20px 16px 24px;
+      overflow-y: auto;
+      animation: slideUp 0.25s ease;
+    }
+    .path-modal h3 {
+      text-align: center;
+      font-size: 1.1rem;
+      margin-bottom: 4px;
+    }
+    .path-modal .path-sub {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      margin-bottom: 16px;
+    }
+    .path-item {
+      background: rgba(0,0,0,0.25);
+      border-radius: 10px;
+      padding: 11px 12px;
+      margin-bottom: 8px;
+      border-left: 3px solid #64748b;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .path-item:active {
+      background: rgba(59,130,246,0.15);
+    }
+    .path-item.won {
+      border-left-color: #16a34a;
+    }
+    .path-item.lost {
+      border-left-color: #dc2626;
+      opacity: 0.7;
+    }
+    .path-item.pending {
+      border-left-color: #64748b;
+    }
+    .path-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .path-item-match {
+      font-weight: 700;
+      color: var(--text);
+      font-size: 0.88rem;
+    }
+    .path-item-result {
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    .path-item-result.win { color: #4ade80; }
+    .path-item-result.lose { color: #f87171; }
+    .path-item-vs {
+      font-size: 0.85rem;
+      line-height: 1.35;
+    }
+    .path-item-vs .opp {
+      font-weight: 600;
+    }
+    .path-item-vs .opp-tbd {
+      color: #64748b;
+      font-style: italic;
+      font-weight: 400;
+    }
+    .path-item-dojo {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+      padding-left: 28px;
+    }
+    .path-modal .path-sub {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      margin-bottom: 4px;
+      line-height: 1.4;
+    }
+    .path-modal .path-meta {
+      text-align: center;
+      color: #64748b;
+      font-size: 0.72rem;
+      margin-bottom: 14px;
+    }
+    .path-close-btn {
+      display: block;
+      width: 100%;
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+
+
+    .path-side {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 3px;
+      margin-right: 4px;
+    }
+    .path-side.blue {
+      background: rgba(37,99,235,0.3);
+      color: #93c5fd;
+    }
+    .path-side.red {
+      background: rgba(220,38,38,0.3);
+      color: #fca5a5;
+    }
+
   </style>
 </head>
 <body>
@@ -704,6 +869,16 @@
         <button class="modal-btn clear" id="btnClear" style="display:none;">⚪ 清除賽果</button>
         <button class="modal-btn cancel" onclick="closeModal()">取消</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Athlete Path Modal -->
+  <div class="path-modal-overlay" id="pathModalOverlay">
+    <div class="path-modal" id="pathModal">
+      <h3 id="pathTitle">選手出線路徑</h3>
+      <div class="path-sub" id="pathSub"></div>
+      <div id="pathList"></div>
+      <button class="path-close-btn" onclick="closePathModal()">關閉</button>
     </div>
   </div>
 
@@ -900,7 +1075,10 @@
             </div>
             <div class="athletes">
               <div class="athlete blue ${blueWin ? 'winner' : ''} ${redWin ? 'loser' : ''}">
-                <div class="athlete-name">${escapeHtml(m.blue?.name || '—')}</div>
+                <div class="name-row">
+                  <div class="athlete-name">${escapeHtml(m.blue?.name || '—')}</div>
+                  ${m.blue?.name && m.blue.name !== '—' && !m.blue.name.includes('勝方') && m.blue.name !== 'Bye' ? `<button class="path-icon" data-athlete="${escapeHtml(m.blue.name)}" onclick="event.stopPropagation();showAthletePath('${escapeHtml(m.blue.name)}')" title="出線路徑">↗</button>` : ''}
+                </div>
                 <div class="athlete-info">
                   ${escapeHtml(m.blue?.dojo || '')}<br>
                   ${escapeHtml(m.blue?.athleteNo || '')}
@@ -909,7 +1087,10 @@
               </div>
               <div class="vs">${vsContent}</div>
               <div class="athlete red ${redWin ? 'winner' : ''} ${blueWin ? 'loser' : ''}">
-                <div class="athlete-name">${escapeHtml(m.red?.name || '—')}</div>
+                <div class="name-row">
+                  <div class="athlete-name">${escapeHtml(m.red?.name || '—')}</div>
+                  ${m.red?.name && m.red.name !== '—' && !m.red.name.includes('勝方') && m.red.name !== 'Bye' ? `<button class="path-icon" data-athlete="${escapeHtml(m.red.name)}" onclick="event.stopPropagation();showAthletePath('${escapeHtml(m.red.name)}')" title="出線路徑">↗</button>` : ''}
+                </div>
                 <div class="athlete-info">
                   ${escapeHtml(m.red?.dojo || '')}<br>
                   ${escapeHtml(m.red?.athleteNo || '')}
@@ -1087,7 +1268,10 @@
       if (athletesEl) {
         athletesEl.innerHTML = `
           <div class="athlete blue ${blueWin ? 'winner' : ''} ${redWin ? 'loser' : ''}">
-            <div class="athlete-name">${escapeHtml(m.blue?.name || '—')}</div>
+            <div class="name-row">
+              <div class="athlete-name">${escapeHtml(m.blue?.name || '—')}</div>
+              ${m.blue?.name && m.blue.name !== '—' && !m.blue.name.includes('勝方') && m.blue.name !== 'Bye' ? `<button class="path-icon" data-athlete="${escapeHtml(m.blue.name)}" onclick="event.stopPropagation();showAthletePath('${escapeHtml(m.blue.name)}')" title="出線路徑">↗</button>` : ''}
+            </div>
             <div class="athlete-info">
               ${escapeHtml(m.blue?.dojo || '')}<br>
               ${escapeHtml(m.blue?.athleteNo || '')}
@@ -1096,7 +1280,10 @@
           </div>
           <div class="vs">${vsContent}</div>
           <div class="athlete red ${redWin ? 'winner' : ''} ${blueWin ? 'loser' : ''}">
-            <div class="athlete-name">${escapeHtml(m.red?.name || '—')}</div>
+            <div class="name-row">
+              <div class="athlete-name">${escapeHtml(m.red?.name || '—')}</div>
+              ${m.red?.name && m.red.name !== '—' && !m.red.name.includes('勝方') && m.red.name !== 'Bye' ? `<button class="path-icon" data-athlete="${escapeHtml(m.red.name)}" onclick="event.stopPropagation();showAthletePath('${escapeHtml(m.red.name)}')" title="出線路徑">↗</button>` : ''}
+            </div>
             <div class="athlete-info">
               ${escapeHtml(m.red?.dojo || '')}<br>
               ${escapeHtml(m.red?.athleteNo || '')}
@@ -1217,6 +1404,197 @@
         // 3 秒後取消高亮
         setTimeout(() => card.classList.remove('highlight'), 3000);
       }, 50);
+    }
+
+
+    // ========== Athlete Path (出線路徑) ==========
+    function showAthletePath(athleteName) {
+      if (!athleteName || athleteName === '—' || athleteName.includes('勝方') || athleteName === 'Bye') return;
+
+      const path = findAthletePath(athleteName);
+      if (path.length === 0) {
+        showToast('找不到此選手的場次', 'error');
+        return;
+      }
+
+      const first = path[0];
+      document.getElementById('pathTitle').textContent = athleteName;
+
+      // 標題層次：量級一行，場地時間一行
+      const subEl = document.getElementById('pathSub');
+      subEl.innerHTML = escapeHtml(first.category || '');
+      
+      // 確保有 pathMeta 元素
+      let metaEl = document.getElementById('pathMeta');
+      if (!metaEl) {
+        metaEl = document.createElement('div');
+        metaEl.id = 'pathMeta';
+        metaEl.className = 'path-meta';
+        subEl.after(metaEl);
+      }
+      metaEl.textContent = `${first.venue || ''} · ${first.time || ''} · 共 ${path.length} 場`;
+
+      const list = document.getElementById('pathList');
+      list.innerHTML = path.map(p => {
+        let statusClass = 'pending';
+        let resultHtml = '';
+        if (p.athleteResult === '勝方') {
+          statusClass = 'won';
+          resultHtml = '<span class="path-item-result win">勝</span>';
+        } else if (p.athleteResult === '負方') {
+          statusClass = 'lost';
+          resultHtml = '<span class="path-item-result lose">負</span>';
+        }
+
+        const oppIsTbd = !p.opponent || p.opponent.includes('勝方') || p.opponent === 'Bye' || p.opponent === '—';
+        const oppHtml = oppIsTbd
+          ? `<span class="opp-tbd">${escapeHtml(p.opponent || '待定')}</span>`
+          : `<span class="opp">${escapeHtml(p.opponent)}</span>`;
+
+        const sideHtml = p.side
+          ? `<span class="path-side ${p.side === '藍' ? 'blue' : 'red'}">${p.side}</span>`
+          : '';
+
+        const dojoHtml = (p.opponentDojo && !oppIsTbd)
+          ? `<div class="path-item-dojo">${escapeHtml(p.opponentDojo)}</div>`
+          : '';
+
+        return `
+          <div class="path-item ${statusClass}" data-match-id="${escapeHtml(p.matchId)}" onclick="jumpToMatch('${escapeHtml(p.matchId)}')">
+            <div class="path-item-header">
+              <span class="path-item-match">${escapeHtml(p.round || '')} · ${escapeHtml(p.matchId)}</span>
+              ${resultHtml}
+            </div>
+            <div class="path-item-vs">
+              ${sideHtml}vs ${oppHtml}
+            </div>
+            ${dojoHtml}
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('pathModalOverlay').classList.add('show');
+    }
+
+    function jumpToMatch(matchId) {
+      closePathModal();
+      // 清掉搜尋，讓卡片較容易出現
+      const searchInput = document.getElementById('filterSearch');
+      if (searchInput && searchInput.value) {
+        searchInput.value = '';
+        hideSuggestions();
+        renderMatches();
+      }
+
+      setTimeout(() => {
+        const card = document.querySelector(`.match-card[data-match-id="${matchId}"]`);
+        if (!card) {
+          showToast('找不到該場次（可能被篩選隱藏）', 'error');
+          return;
+        }
+        document.querySelectorAll('.match-card.highlight').forEach(el => el.classList.remove('highlight'));
+        card.classList.add('highlight');
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => card.classList.remove('highlight'), 3000);
+      }, 80);
+    }
+
+    function closePathModal() {
+      document.getElementById('pathModalOverlay').classList.remove('show');
+    }
+
+    document.getElementById('pathModalOverlay').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('pathModalOverlay')) closePathModal();
+    });
+
+    function findAthletePath(athleteName) {
+      const path = [];
+      const visited = new Set();
+
+      const directMatches = allMatches.filter(m => {
+        return (m.blue?.name === athleteName) || (m.red?.name === athleteName);
+      });
+      directMatches.sort((a, b) => a.matchId.localeCompare(b.matchId));
+
+      for (const m of directMatches) {
+        if (visited.has(m.matchId)) continue;
+        addMatchToPath(m, athleteName, path, visited);
+
+        let currentId = m.matchId;
+        let safety = 0;
+        while (safety < 20) {
+          safety++;
+          const next = allMatches.find(nm => {
+            if (visited.has(nm.matchId)) return false;
+            const prevBlue = nm.blue?.previousMatch || '';
+            const prevRed = nm.red?.previousMatch || '';
+            return prevBlue === currentId || prevRed === currentId;
+          });
+          if (!next) break;
+          addMatchToPath(next, athleteName, path, visited);
+          currentId = next.matchId;
+        }
+      }
+
+      path.sort((a, b) => a.matchId.localeCompare(b.matchId));
+      return path;
+    }
+
+    function addMatchToPath(m, athleteName, path, visited) {
+      if (visited.has(m.matchId)) return;
+      visited.add(m.matchId);
+
+      const isBlue = m.blue?.name === athleteName;
+      const isRed = m.red?.name === athleteName;
+
+      let athleteResult = '';
+      let opponent = '';
+      let opponentDojo = '';
+      let side = '';
+
+      if (isBlue) {
+        athleteResult = m.blue?.result || '';
+        opponent = m.red?.name || '—';
+        opponentDojo = m.red?.dojo || '';
+        side = '藍';
+      } else if (isRed) {
+        athleteResult = m.red?.result || '';
+        opponent = m.blue?.name || '—';
+        opponentDojo = m.blue?.dojo || '';
+        side = '紅';
+      } else {
+        // 未來場次（以勝方佔位）
+        const blueName = m.blue?.name || '—';
+        const redName = m.red?.name || '—';
+        const prevBlue = m.blue?.previousMatch || '';
+        const prevRed = m.red?.previousMatch || '';
+        // 若此場的某一邊 previousMatch 是上一場，則選手在那一邊
+        // 簡化：看哪邊是「xxx勝方」
+        if (blueName.includes('勝方')) {
+          side = '藍';
+          opponent = redName;
+          opponentDojo = m.red?.dojo || '';
+        } else if (redName.includes('勝方')) {
+          side = '紅';
+          opponent = blueName;
+          opponentDojo = m.blue?.dojo || '';
+        } else {
+          opponent = redName !== '—' ? redName : blueName;
+        }
+      }
+
+      path.push({
+        matchId: m.matchId,
+        round: m.round,
+        category: m.category,
+        venue: m.venue,
+        time: m.time,
+        status: m.status,
+        athleteResult,
+        opponent,
+        opponentDojo,
+        side
+      });
     }
 
     function escapeHtml(str) {
