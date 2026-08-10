@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1a1a2e">
+  <title>跆拳道搏擊出線表</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    :root {
+      --bg: #0f0f1a;
+      --card-bg: #1a1a2e;
+      --blue: #2563eb;
+      --blue-dark: #1e40af;
+      --red: #dc2626;
+      --red-dark: #991b1b;
+      --green: #16a34a;
+      --yellow: #ca8a04;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --border: #334155;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 80px;
+    }
+
+    /* Header */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+    }
+
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .header h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .btn {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s;
+    }
+
+    .btn:active {
+      transform: scale(0.96);
+    }
+
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .sync-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      display: inline-block;
+      margin-right: 4px;
+      animation: pulse 2s infinite;
+    }
+
+    .sync-dot.error {
+      background: var(--red);
+      animation: none;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* Filters */
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .filters select,
+    .filters input {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      min-width: 0;
+    }
+
+    .filters select {
+      flex: 1;
+      min-width: 100px;
+    }
+
+    .filters input {
+      flex: 2;
+      min-width: 140px;
+    }
+
+    /* Match list */
+    .match-list {
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .match-card {
+      background: var(--card-bg);
+      border-radius: 14px;
+      overflow: hidden;
+      border: 2px solid var(--border);
+      transition: transform 0.15s, box-shadow 0.15s;
+      position: relative;
+    }
+
+    .match-card:active {
+      transform: scale(0.985);
+    }
+
+    /* 未完成：較亮、有強調邊框 */
+    .match-card.pending {
+      border-color: #475569;
+      box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15);
+    }
+
+    /* 進行中：黃色強調 */
+    .match-card.ongoing {
+      border-color: #ca8a04;
+      box-shadow: 0 0 12px rgba(202, 138, 4, 0.25);
+    }
+
+    /* 已完成：明顯變暗 + 綠色邊 */
+    .match-card.completed {
+      opacity: 0.72;
+      border-color: #166534;
+      background: #12121f;
+    }
+
+    .match-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: rgba(0,0,0,0.3);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .match-id {
+      font-weight: 700;
+      color: var(--text);
+      font-size: 0.85rem;
+    }
+
+    .match-meta {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .badge {
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+
+    .badge-status-未開始 { background: #334155; color: #e2e8f0; }
+    .badge-status-進行中 { background: #854d0e; color: #fef08a; }
+    .badge-status-已完成 { background: #14532d; color: #86efac; }
+
+    .athletes {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 0;
+      min-height: 100px;
+    }
+
+    .athlete {
+      padding: 14px 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      position: relative;
+    }
+
+    .athlete.blue {
+      background: linear-gradient(135deg, rgba(37,99,235,0.18), transparent);
+      border-right: 1px solid var(--border);
+      text-align: left;
+    }
+
+    .athlete.red {
+      background: linear-gradient(225deg, rgba(220,38,38,0.18), transparent);
+      border-left: 1px solid var(--border);
+      text-align: right;
+    }
+
+    /* 勝方明顯標示 */
+    .athlete.winner {
+      background: linear-gradient(135deg, rgba(22,163,74,0.45), rgba(22,163,74,0.15)) !important;
+    }
+
+    .athlete.winner.red {
+      background: linear-gradient(225deg, rgba(22,163,74,0.45), rgba(22,163,74,0.15)) !important;
+    }
+
+    .athlete.winner::after {
+      content: "WIN";
+      position: absolute;
+      top: 6px;
+      font-size: 0.65rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: #4ade80;
+      background: rgba(0,0,0,0.45);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .athlete.blue.winner::after { left: 8px; }
+    .athlete.red.winner::after { right: 8px; }
+
+    /* 負方變暗 */
+    .athlete.loser {
+      opacity: 0.55;
+    }
+
+    .athlete-name {
+      font-weight: 700;
+      font-size: 1.05rem;
+      margin-bottom: 3px;
+      word-break: break-all;
+      line-height: 1.25;
+    }
+
+    .athlete.winner .athlete-name {
+      color: #bbf7d0;
+    }
+
+    .athlete-info {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      line-height: 1.35;
+    }
+
+    .vs {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 0 8px;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      font-weight: 700;
+      background: rgba(0,0,0,0.25);
+      min-width: 42px;
+    }
+
+    .vs-result {
+      font-size: 0.9rem;
+      margin-top: 4px;
+      font-weight: 800;
+    }
+
+    .result-win-blue { color: #60a5fa; }
+    .result-win-red { color: #f87171; }
+
+    .category-bar {
+      padding: 6px 12px;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      background: rgba(0,0,0,0.2);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 200;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .modal-overlay.show {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--card-bg);
+      width: 100%;
+      max-width: 420px;
+      border-radius: 20px 20px 0 0;
+      padding: 20px;
+      animation: slideUp 0.25s ease;
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+
+    .modal h3 {
+      text-align: center;
+      margin-bottom: 8px;
+      font-size: 1.15rem;
+    }
+
+    .modal-match-info {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    .modal-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .modal-btn {
+      padding: 15px;
+      border-radius: 12px;
+      border: none;
+      font-size: 1.05rem;
+      font-weight: 700;
+      cursor: pointer;
+      color: white;
+    }
+
+    .modal-btn.blue { background: var(--blue); }
+    .modal-btn.red { background: var(--red); }
+    .modal-btn.cancel {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .modal-confirm-text {
+      text-align: center;
+      margin-bottom: 16px;
+      color: #fbbf24;
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    /* Empty / Loading */
+    .empty-state, .loading-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #1e293b;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      z-index: 300;
+      transition: transform 0.3s ease;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      max-width: 90%;
+      text-align: center;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .toast.success { border-left: 4px solid var(--green); }
+    .toast.error { border-left: 4px solid var(--red); }
+
+    .filter-count {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      padding: 0 16px 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-top">
+      <h1>跆拳道搏擊出線表</h1>
+      <div class="header-actions">
+        <button class="btn" id="btnRefresh" onclick="manualRefresh()">
+          ↻ 重新整理
+        </button>
+      </div>
+    </div>
+    <div class="status-bar">
+      <span>
+        <span class="sync-dot" id="syncDot"></span>
+        <span id="syncText">即時更新中</span>
+      </span>
+      <span id="lastUpdate">—</span>
+    </div>
+    <div class="filters">
+      <select id="filterCategory">
+        <option value="">全部量級</option>
+      </select>
+      <select id="filterVenue">
+        <option value="">全部場地</option>
+      </select>
+      <input type="text" id="filterSearch" placeholder="搜尋姓名 / 場次...">
+    </div>
+  </div>
+
+  <div class="filter-count" id="filterCount"></div>
+  <div class="match-list" id="matchList">
+    <div class="loading-state">
+      <div class="spinner"></div>
+      正在載入資料...
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="modal">
+      <h3 id="modalTitle">選擇勝方</h3>
+      <div class="modal-match-info" id="modalInfo"></div>
+      <div id="modalConfirmArea" style="display:none;"></div>
+      <div class="modal-actions">
+        <button class="modal-btn blue" id="btnBlueWin">🔵 藍方勝</button>
+        <button class="modal-btn red" id="btnRedWin">🔴 紅方勝</button>
+        <button class="modal-btn cancel" onclick="closeModal()">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzHs9gHGcWfzRUkadKmz-nPS_IzTqdpaANHiudtRS0YJtjC8cG4Wnd3EqZsjgjlja7H/exec';
+    const REFRESH_INTERVAL = 20000;
+
+    let allMatches = [];
+    let currentMatch = null;
+    let isUpdating = false;
+    let refreshTimer = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadData();
+      startAutoRefresh();
+
+      document.getElementById('filterCategory').addEventListener('change', renderMatches);
+      document.getElementById('filterVenue').addEventListener('change', renderMatches);
+      document.getElementById('filterSearch').addEventListener('input', debounce(renderMatches, 250));
+    });
+
+    async function loadData(silent = false) {
+      if (!silent) {
+        document.getElementById('syncText').textContent = '更新中...';
+      }
+
+      try {
+        const res = await fetch(API_URL + '?action=getMatches&t=' + Date.now());
+        const json = await res.json();
+
+        if (!json.success) throw new Error(json.error || '載入失敗');
+
+        allMatches = json.data || [];
+        updateFilterOptions();
+        renderMatches();
+
+        document.getElementById('syncDot').classList.remove('error');
+        document.getElementById('syncText').textContent = '即時更新中';
+        document.getElementById('lastUpdate').textContent = 
+          '最後更新：' + new Date().toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+      } catch (err) {
+        console.error(err);
+        document.getElementById('syncDot').classList.add('error');
+        document.getElementById('syncText').textContent = '連線異常';
+        if (!silent) showToast('載入失敗：' + err.message, 'error');
+      }
+    }
+
+    function startAutoRefresh() {
+      if (refreshTimer) clearInterval(refreshTimer);
+      refreshTimer = setInterval(() => {
+        if (!isUpdating && !document.getElementById('modalOverlay').classList.contains('show')) {
+          loadData(true);
+        }
+      }, REFRESH_INTERVAL);
+    }
+
+    function manualRefresh() {
+      loadData(false);
+    }
+
+    function updateFilterOptions() {
+      const categories = [...new Set(allMatches.map(m => m.category).filter(Boolean))].sort();
+      const venues = [...new Set(allMatches.map(m => m.venue).filter(Boolean))].sort();
+
+      const catSelect = document.getElementById('filterCategory');
+      const venSelect = document.getElementById('filterVenue');
+
+      const currentCat = catSelect.value;
+      const currentVen = venSelect.value;
+
+      catSelect.innerHTML = '<option value="">全部量級</option>' + 
+        categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+      venSelect.innerHTML = '<option value="">全部場地</option>' + 
+        venues.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+
+      catSelect.value = currentCat;
+      venSelect.value = currentVen;
+    }
+
+    function getFilteredMatches() {
+      const cat = document.getElementById('filterCategory').value;
+      const ven = document.getElementById('filterVenue').value;
+      const search = document.getElementById('filterSearch').value.trim().toLowerCase();
+
+      return allMatches.filter(m => {
+        if (cat && m.category !== cat) return false;
+        if (ven && m.venue !== ven) return false;
+        if (search) {
+          const text = [
+            m.matchId, m.category,
+            m.blue?.name, m.red?.name,
+            m.blue?.dojo, m.red?.dojo
+          ].join(' ').toLowerCase();
+          if (!text.includes(search)) return false;
+        }
+        return true;
+      });
+    }
+
+    function renderMatches() {
+      const list = document.getElementById('matchList');
+      const filtered = getFilteredMatches();
+
+      document.getElementById('filterCount').textContent = 
+        `顯示 ${filtered.length} / ${allMatches.length} 場`;
+
+      if (filtered.length === 0) {
+        list.innerHTML = `<div class="empty-state">沒有符合條件的比賽</div>`;
+        return;
+      }
+
+      list.innerHTML = filtered.map(m => {
+        const blueWin = m.blue?.result === '勝方';
+        const redWin = m.red?.result === '勝方';
+        const hasResult = blueWin || redWin || m.status === '已完成';
+
+        let cardClass = 'pending';
+        if (m.status === '進行中') cardClass = 'ongoing';
+        else if (hasResult) cardClass = 'completed';
+
+        let vsContent = 'VS';
+        if (blueWin) vsContent = `<div class="vs-result result-win-blue">藍勝</div>`;
+        else if (redWin) vsContent = `<div class="vs-result result-win-red">紅勝</div>`;
+
+        return `
+          <div class="match-card ${cardClass}" onclick="openMatchModal('${escapeHtml(m.matchId)}')">
+            <div class="match-header">
+              <div>
+                <span class="match-id">${escapeHtml(m.matchId)}</span>
+                <span style="margin-left:8px">${escapeHtml(m.round || '')}</span>
+              </div>
+              <div class="match-meta">
+                <span>${escapeHtml(m.venue || '')}${m.time ? ' · ' + escapeHtml(m.time) : ''}</span>
+                <span class="badge badge-status-${escapeHtml(m.status || '未開始')}">${escapeHtml(m.status || '未開始')}</span>
+              </div>
+            </div>
+            <div class="athletes">
+              <div class="athlete blue ${blueWin ? 'winner' : ''} ${redWin ? 'loser' : ''}">
+                <div class="athlete-name">${escapeHtml(m.blue?.name || '—')}</div>
+                <div class="athlete-info">
+                  ${escapeHtml(m.blue?.dojo || '')}<br>
+                  ${escapeHtml(m.blue?.athleteNo || '')}
+                  ${m.blue?.previousMatch && m.blue.previousMatch !== 'N/A' ? '<br>← ' + escapeHtml(m.blue.previousMatch) : ''}
+                </div>
+              </div>
+              <div class="vs">${vsContent}</div>
+              <div class="athlete red ${redWin ? 'winner' : ''} ${blueWin ? 'loser' : ''}">
+                <div class="athlete-name">${escapeHtml(m.red?.name || '—')}</div>
+                <div class="athlete-info">
+                  ${escapeHtml(m.red?.dojo || '')}<br>
+                  ${escapeHtml(m.red?.athleteNo || '')}
+                  ${m.red?.previousMatch && m.red.previousMatch !== 'N/A' ? '<br>← ' + escapeHtml(m.red.previousMatch) : ''}
+                </div>
+              </div>
+            </div>
+            <div class="category-bar">
+              <span>${escapeHtml(m.category || '')}</span>
+              <span>${hasResult ? (blueWin ? '藍方勝出' : redWin ? '紅方勝出' : '') : ''}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openMatchModal(matchId) {
+      const match = allMatches.find(m => m.matchId === matchId);
+      if (!match) return;
+
+      currentMatch = match;
+      const hasResult = match.blue?.result === '勝方' || match.red?.result === '勝方' || match.status === '已完成';
+
+      document.getElementById('modalTitle').textContent = hasResult ? '更改賽果' : '選擇勝方';
+      document.getElementById('modalInfo').innerHTML = `
+        <strong>${escapeHtml(match.matchId)}</strong> · ${escapeHtml(match.category)}<br>
+        ${escapeHtml(match.blue?.name || '—')} vs ${escapeHtml(match.red?.name || '—')}
+      `;
+
+      const confirmArea = document.getElementById('modalConfirmArea');
+      if (hasResult) {
+        confirmArea.style.display = 'block';
+        confirmArea.innerHTML = `
+          <div class="modal-confirm-text">此場已有賽果，確定要更改嗎？</div>
+          <button class="modal-btn blue" style="width:100%;margin-bottom:8px" onclick="showWinnerButtons()">確定更改</button>
+        `;
+        document.getElementById('btnBlueWin').style.display = 'none';
+        document.getElementById('btnRedWin').style.display = 'none';
+      } else {
+        confirmArea.style.display = 'none';
+        document.getElementById('btnBlueWin').style.display = 'block';
+        document.getElementById('btnRedWin').style.display = 'block';
+      }
+
+      document.getElementById('modalOverlay').classList.add('show');
+    }
+
+    function showWinnerButtons() {
+      document.getElementById('modalConfirmArea').style.display = 'none';
+      document.getElementById('btnBlueWin').style.display = 'block';
+      document.getElementById('btnRedWin').style.display = 'block';
+    }
+
+    function closeModal() {
+      document.getElementById('modalOverlay').classList.remove('show');
+      currentMatch = null;
+    }
+
+    document.getElementById('btnBlueWin').addEventListener('click', () => submitResult('藍'));
+    document.getElementById('btnRedWin').addEventListener('click', () => submitResult('紅'));
+
+    document.getElementById('modalOverlay').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('modalOverlay')) closeModal();
+    });
+
+    async function submitResult(side) {
+      if (!currentMatch || isUpdating) return;
+
+      isUpdating = true;
+      const matchId = currentMatch.matchId;
+
+      try {
+        showToast('正在更新...', 'success');
+
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            matchId: matchId,
+            winnerSide: side
+          })
+        });
+
+        const json = await res.json();
+
+        if (!json.success) throw new Error(json.error || '更新失敗');
+
+        showToast(json.message || '更新成功', 'success');
+        closeModal();
+        await loadData(true);
+
+      } catch (err) {
+        console.error(err);
+        showToast('更新失敗：' + err.message, 'error');
+      } finally {
+        isUpdating = false;
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function showToast(msg, type = 'success') {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.className = 'toast show ' + type;
+      setTimeout(() => toast.classList.remove('show'), 2800);
+    }
+
+    function debounce(fn, delay) {
+      let timer;
+      return function(...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), delay);
+      };
+    }
+  </script>
+</body>
+</html>
