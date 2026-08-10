@@ -555,6 +555,84 @@
       color: #e2e8f0;
     }
 
+
+    /* Search suggestions */
+    .search-wrap {
+      position: relative;
+      flex: 2;
+      min-width: 140px;
+    }
+
+    .search-wrap input {
+      width: 100%;
+    }
+
+    .suggest-list {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      margin-top: 4px;
+      background: #1e293b;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      max-height: 260px;
+      overflow-y: auto;
+      z-index: 120;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+    }
+
+    .suggest-list.show {
+      display: block;
+    }
+
+    .suggest-item {
+      padding: 10px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(51,65,85,0.6);
+      font-size: 0.85rem;
+    }
+
+    .suggest-item:last-child {
+      border-bottom: none;
+    }
+
+    .suggest-item:active,
+    .suggest-item:hover {
+      background: rgba(37,99,235,0.25);
+    }
+
+    .suggest-item .s-name {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .suggest-item .s-meta {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .suggest-empty {
+      padding: 12px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+
+    /* Highlight target card */
+    .match-card.highlight {
+      border-color: #3b82f6 !important;
+      box-shadow: 0 0 0 2px rgba(59,130,246,0.45), 0 0 20px rgba(59,130,246,0.2);
+      animation: highlightPulse 1.2s ease;
+    }
+
+    @keyframes highlightPulse {
+      0% { box-shadow: 0 0 0 4px rgba(59,130,246,0.6); }
+      100% { box-shadow: 0 0 0 2px rgba(59,130,246,0.45), 0 0 20px rgba(59,130,246,0.2); }
+    }
+
   </style>
 </head>
 <body>
@@ -593,7 +671,10 @@
       <select id="filterVenue">
         <option value="">全部場地</option>
       </select>
-      <input type="text" id="filterSearch" placeholder="搜尋姓名 / 場次...">
+      <div class="search-wrap">
+        <input type="text" id="filterSearch" placeholder="搜尋姓名 / 場次..." autocomplete="off">
+        <div class="suggest-list" id="suggestList"></div>
+      </div>
     </div>
     <div class="filter-toggle-row">
       <label class="toggle-label">
@@ -646,8 +727,17 @@
       document.getElementById('filterCategory').addEventListener('change', renderMatches);
       document.getElementById('filterRound').addEventListener('change', renderMatches);
       document.getElementById('filterVenue').addEventListener('change', renderMatches);
-      document.getElementById('filterSearch').addEventListener('input', debounce(renderMatches, 250));
+      document.getElementById('filterSearch').addEventListener('input', onSearchInput);
+      document.getElementById('filterSearch').addEventListener('focus', onSearchInput);
       document.getElementById('hideCompleted').addEventListener('change', renderMatches);
+
+      // 點擊外部關閉建議
+      document.addEventListener('click', (e) => {
+        const wrap = document.querySelector('.search-wrap');
+        if (wrap && !wrap.contains(e.target)) {
+          hideSuggestions();
+        }
+      });
     });
 
     async function loadData(silent = false) {
@@ -1024,6 +1114,109 @@
           rightSpan.textContent = hasResult ? (blueWin ? '藍方勝出' : redWin ? '紅方勝出' : '') : '';
         }
       }
+    }
+
+
+    // ========== Search Suggestions (方案 A) ==========
+    function onSearchInput() {
+      const q = document.getElementById('filterSearch').value.trim().toLowerCase();
+      // 同時維持原本的列表過濾
+      renderMatches();
+
+      if (!q || q.length < 1) {
+        hideSuggestions();
+        return;
+      }
+
+      const results = [];
+      const seen = new Set();
+
+      for (const m of allMatches) {
+        const candidates = [];
+        if (m.blue?.name) candidates.push({ name: m.blue.name, dojo: m.blue.dojo || '', side: '藍' });
+        if (m.red?.name) candidates.push({ name: m.red.name, dojo: m.red.dojo || '', side: '紅' });
+
+        // 場次編號匹配
+        if (m.matchId && m.matchId.toLowerCase().includes(q)) {
+          const key = m.matchId;
+          if (!seen.has(key)) {
+            seen.add(key);
+            results.push({
+              matchId: m.matchId,
+              title: m.matchId,
+              meta: `${m.round || ''} · ${m.category || ''} · ${m.venue || ''}`,
+              type: 'match'
+            });
+          }
+        }
+
+        for (const c of candidates) {
+          if (!c.name || c.name === '—' || c.name.includes('勝方') || c.name === 'Bye') continue;
+          if (c.name.toLowerCase().includes(q) || (c.dojo && c.dojo.toLowerCase().includes(q))) {
+            const key = m.matchId + '|' + c.name;
+            if (!seen.has(key)) {
+              seen.add(key);
+              results.push({
+                matchId: m.matchId,
+                title: c.name,
+                meta: `${c.dojo} · ${m.matchId} · ${m.round || ''}`,
+                type: 'athlete'
+              });
+            }
+          }
+        }
+
+        if (results.length >= 8) break;
+      }
+
+      showSuggestions(results);
+    }
+
+    function showSuggestions(results) {
+      const list = document.getElementById('suggestList');
+      if (!list) return;
+
+      if (results.length === 0) {
+        list.innerHTML = '<div class="suggest-empty">沒有符合的結果</div>';
+        list.classList.add('show');
+        return;
+      }
+
+      list.innerHTML = results.map(r => `
+        <div class="suggest-item" onclick="selectSuggestion('${escapeHtml(r.matchId)}')">
+          <div class="s-name">${escapeHtml(r.title)}</div>
+          <div class="s-meta">${escapeHtml(r.meta)}</div>
+        </div>
+      `).join('');
+      list.classList.add('show');
+    }
+
+    function hideSuggestions() {
+      const list = document.getElementById('suggestList');
+      if (list) list.classList.remove('show');
+    }
+
+    function selectSuggestion(matchId) {
+      hideSuggestions();
+      // 清掉搜尋，顯示全部（或保留過濾也可，這裡選擇跳轉為主）
+      document.getElementById('filterSearch').value = '';
+      renderMatches();
+
+      // 等 DOM 更新後再滾動
+      setTimeout(() => {
+        const card = document.querySelector(`.match-card[data-match-id="${matchId}"]`);
+        if (!card) {
+          showToast('找不到該場次', 'error');
+          return;
+        }
+        // 移除舊高亮
+        document.querySelectorAll('.match-card.highlight').forEach(el => el.classList.remove('highlight'));
+        card.classList.add('highlight');
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // 3 秒後取消高亮
+        setTimeout(() => card.classList.remove('highlight'), 3000);
+      }, 50);
     }
 
     function escapeHtml(str) {
