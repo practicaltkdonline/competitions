@@ -1077,7 +1077,7 @@
               <div class="athlete blue ${blueWin ? 'winner' : ''} ${redWin ? 'loser' : ''}">
                 <div class="name-row">
                   <div class="athlete-name">${escapeHtml(m.blue?.name || '—')}</div>
-                  ${m.blue?.name && m.blue.name !== '—' && !m.blue.name.includes('勝方') && m.blue.name !== 'Bye' ? `<button class="path-icon" data-athlete="${escapeHtml(m.blue.name)}" onclick="event.stopPropagation();showAthletePath('${escapeHtml(m.blue.name)}')" title="出線路徑">↗</button>` : ''}
+                  ${m.blue?.name && m.blue.name !== '—' ? `<button class="path-icon" data-athlete="${escapeHtml(m.blue.name)}" onclick="event.stopPropagation();showAthletePath('${escapeHtml(m.blue.name)}')" title="出線路徑">↗</button>` : ''}
                 </div>
                 <div class="athlete-info">
                   ${escapeHtml(m.blue?.dojo || '')}<br>
@@ -1089,7 +1089,7 @@
               <div class="athlete red ${redWin ? 'winner' : ''} ${blueWin ? 'loser' : ''}">
                 <div class="name-row">
                   <div class="athlete-name">${escapeHtml(m.red?.name || '—')}</div>
-                  ${m.red?.name && m.red.name !== '—' && !m.red.name.includes('勝方') && m.red.name !== 'Bye' ? `<button class="path-icon" data-athlete="${escapeHtml(m.red.name)}" onclick="event.stopPropagation();showAthletePath('${escapeHtml(m.red.name)}')" title="出線路徑">↗</button>` : ''}
+                  ${m.red?.name && m.red.name !== '—' ? `<button class="path-icon" data-athlete="${escapeHtml(m.red.name)}" onclick="event.stopPropagation();showAthletePath('${escapeHtml(m.red.name)}')" title="出線路徑">↗</button>` : ''}
                 </div>
                 <div class="athlete-info">
                   ${escapeHtml(m.red?.dojo || '')}<br>
@@ -1270,7 +1270,7 @@
           <div class="athlete blue ${blueWin ? 'winner' : ''} ${redWin ? 'loser' : ''}">
             <div class="name-row">
               <div class="athlete-name">${escapeHtml(m.blue?.name || '—')}</div>
-              ${m.blue?.name && m.blue.name !== '—' && !m.blue.name.includes('勝方') && m.blue.name !== 'Bye' ? `<button class="path-icon" data-athlete="${escapeHtml(m.blue.name)}" onclick="event.stopPropagation();showAthletePath('${escapeHtml(m.blue.name)}')" title="出線路徑">↗</button>` : ''}
+              ${m.blue?.name && m.blue.name !== '—' ? `<button class="path-icon" data-athlete="${escapeHtml(m.blue.name)}" onclick="event.stopPropagation();showAthletePath('${escapeHtml(m.blue.name)}')" title="出線路徑">↗</button>` : ''}
             </div>
             <div class="athlete-info">
               ${escapeHtml(m.blue?.dojo || '')}<br>
@@ -1282,7 +1282,7 @@
           <div class="athlete red ${redWin ? 'winner' : ''} ${blueWin ? 'loser' : ''}">
             <div class="name-row">
               <div class="athlete-name">${escapeHtml(m.red?.name || '—')}</div>
-              ${m.red?.name && m.red.name !== '—' && !m.red.name.includes('勝方') && m.red.name !== 'Bye' ? `<button class="path-icon" data-athlete="${escapeHtml(m.red.name)}" onclick="event.stopPropagation();showAthletePath('${escapeHtml(m.red.name)}')" title="出線路徑">↗</button>` : ''}
+              ${m.red?.name && m.red.name !== '—' ? `<button class="path-icon" data-athlete="${escapeHtml(m.red.name)}" onclick="event.stopPropagation();showAthletePath('${escapeHtml(m.red.name)}')" title="出線路徑">↗</button>` : ''}
             </div>
             <div class="athlete-info">
               ${escapeHtml(m.red?.dojo || '')}<br>
@@ -1409,7 +1409,7 @@
 
     // ========== Athlete Path (出線路徑) ==========
     function showAthletePath(athleteName) {
-      if (!athleteName || athleteName === '—' || athleteName.includes('勝方') || athleteName === 'Bye') return;
+      if (!athleteName || athleteName === '—') return;
 
       const path = findAthletePath(athleteName);
       if (path.length === 0) {
@@ -1511,6 +1511,45 @@
       const path = [];
       const visited = new Set();
 
+      // 若是「A106勝方」這類佔位，從該場次往後追
+      const placeholderMatch = athleteName.match(/^([A-Za-z0-9\-]+)勝方$/);
+      if (placeholderMatch) {
+        const fromId = placeholderMatch[1];
+        // 找出所有 previousMatch = fromId 的場次，以及名稱為 athleteName 的場次
+        const startMatches = allMatches.filter(m => {
+          return m.matchId === fromId
+            || m.blue?.name === athleteName
+            || m.red?.name === athleteName
+            || m.blue?.previousMatch === fromId
+            || m.red?.previousMatch === fromId;
+        });
+        startMatches.sort((a, b) => a.matchId.localeCompare(b.matchId));
+
+        for (const m of startMatches) {
+          if (visited.has(m.matchId)) continue;
+          // 對於來源場 fromId，若選手尚未決出，仍顯示該場
+          addMatchToPath(m, athleteName, path, visited);
+
+          let currentId = m.matchId;
+          let safety = 0;
+          while (safety < 20) {
+            safety++;
+            const next = allMatches.find(nm => {
+              if (visited.has(nm.matchId)) return false;
+              const prevBlue = nm.blue?.previousMatch || '';
+              const prevRed = nm.red?.previousMatch || '';
+              return prevBlue === currentId || prevRed === currentId;
+            });
+            if (!next) break;
+            addMatchToPath(next, athleteName, path, visited);
+            currentId = next.matchId;
+          }
+        }
+        path.sort((a, b) => a.matchId.localeCompare(b.matchId));
+        return path;
+      }
+
+      // 一般真實姓名
       const directMatches = allMatches.filter(m => {
         return (m.blue?.name === athleteName) || (m.red?.name === athleteName);
       });
@@ -1546,6 +1585,8 @@
 
       const isBlue = m.blue?.name === athleteName;
       const isRed = m.red?.name === athleteName;
+      const placeholderMatch = athleteName.match(/^([A-Za-z0-9\-]+)勝方$/);
+      const fromId = placeholderMatch ? placeholderMatch[1] : null;
 
       let athleteResult = '';
       let opponent = '';
@@ -1562,14 +1603,38 @@
         opponent = m.blue?.name || '—';
         opponentDojo = m.blue?.dojo || '';
         side = '紅';
+      } else if (fromId) {
+        // 佔位：根據 previousMatch 或名稱判斷邊
+        if (m.blue?.previousMatch === fromId || m.blue?.name === athleteName) {
+          side = '藍';
+          opponent = m.red?.name || '—';
+          opponentDojo = m.red?.dojo || '';
+          athleteResult = m.blue?.result || '';
+        } else if (m.red?.previousMatch === fromId || m.red?.name === athleteName) {
+          side = '紅';
+          opponent = m.blue?.name || '—';
+          opponentDojo = m.blue?.dojo || '';
+          athleteResult = m.red?.result || '';
+        } else if (m.matchId === fromId) {
+          // 來源場本身：顯示該場兩邊概要
+          opponent = (m.blue?.name || '—') + ' vs ' + (m.red?.name || '—');
+          side = '';
+        } else {
+          const blueName = m.blue?.name || '—';
+          const redName = m.red?.name || '—';
+          if (blueName.includes('勝方')) {
+            side = '藍';
+            opponent = redName;
+            opponentDojo = m.red?.dojo || '';
+          } else {
+            side = '紅';
+            opponent = blueName;
+            opponentDojo = m.blue?.dojo || '';
+          }
+        }
       } else {
-        // 未來場次（以勝方佔位）
         const blueName = m.blue?.name || '—';
         const redName = m.red?.name || '—';
-        const prevBlue = m.blue?.previousMatch || '';
-        const prevRed = m.red?.previousMatch || '';
-        // 若此場的某一邊 previousMatch 是上一場，則選手在那一邊
-        // 簡化：看哪邊是「xxx勝方」
         if (blueName.includes('勝方')) {
           side = '藍';
           opponent = redName;
@@ -1596,6 +1661,7 @@
         side
       });
     }
+
 
     function escapeHtml(str) {
       if (!str) return '';
