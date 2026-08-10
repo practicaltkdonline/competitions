@@ -587,6 +587,9 @@
       <select id="filterCategory">
         <option value="">全部量級</option>
       </select>
+      <select id="filterRound">
+        <option value="">全部輪次</option>
+      </select>
       <select id="filterVenue">
         <option value="">全部場地</option>
       </select>
@@ -627,7 +630,7 @@
 
   <script>
     const API_URL = 'https://script.google.com/macros/s/AKfycbzHs9gHGcWfzRUkadKmz-nPS_IzTqdpaANHiudtRS0YJtjC8cG4Wnd3EqZsjgjlja7H/exec';
-    const REFRESH_INTERVAL = 20000;
+    const REFRESH_INTERVAL = 15000;
 
     let allMatches = [];
     let currentMatch = null;
@@ -641,6 +644,7 @@
       startAutoRefresh();
 
       document.getElementById('filterCategory').addEventListener('change', renderMatches);
+      document.getElementById('filterRound').addEventListener('change', renderMatches);
       document.getElementById('filterVenue').addEventListener('change', renderMatches);
       document.getElementById('filterSearch').addEventListener('input', debounce(renderMatches, 250));
       document.getElementById('hideCompleted').addEventListener('change', renderMatches);
@@ -705,16 +709,34 @@
 
     function updateFilterOptions() {
       const categories = [...new Set(allMatches.map(m => m.category).filter(Boolean))].sort();
+      const rounds = [...new Set(allMatches.map(m => m.round).filter(Boolean))];
+      // 輪次排序：依常見比賽順序
+      const roundOrder = ['16強', '8強', '4強', '準決賽', '決賽', '季軍賽'];
+      rounds.sort((a, b) => {
+        const ia = roundOrder.indexOf(a);
+        const ib = roundOrder.indexOf(b);
+        if (ia === -1 && ib === -1) return a.localeCompare(b);
+        if (ia === -1) return 1;
+        if (ib === -1) return -1;
+        return ia - ib;
+      });
       const venues = [...new Set(allMatches.map(m => m.venue).filter(Boolean))].sort();
 
       const catSelect = document.getElementById('filterCategory');
+      const roundSelect = document.getElementById('filterRound');
       const venSelect = document.getElementById('filterVenue');
 
       const currentCat = catSelect.value;
+      const currentRound = roundSelect ? roundSelect.value : '';
       const currentVen = venSelect.value;
 
       catSelect.innerHTML = '<option value="">全部量級</option>' + 
         categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+      if (roundSelect) {
+        roundSelect.innerHTML = '<option value="">全部輪次</option>' + 
+          rounds.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
+        roundSelect.value = currentRound;
+      }
       venSelect.innerHTML = '<option value="">全部場地</option>' + 
         venues.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
 
@@ -724,12 +746,14 @@
 
     function getFilteredMatches() {
       const cat = document.getElementById('filterCategory').value;
+      const round = document.getElementById('filterRound')?.value || '';
       const ven = document.getElementById('filterVenue').value;
       const search = document.getElementById('filterSearch').value.trim().toLowerCase();
       const hideCompleted = document.getElementById('hideCompleted').checked;
 
       return allMatches.filter(m => {
         if (cat && m.category !== cat) return false;
+        if (round && m.round !== round) return false;
         if (ven && m.venue !== ven) return false;
         if (hideCompleted) {
           const hasResult = m.blue?.result === '勝方' || m.red?.result === '勝方' || m.status === '已完成';
@@ -737,7 +761,7 @@
         }
         if (search) {
           const text = [
-            m.matchId, m.category,
+            m.matchId, m.category, m.round,
             m.blue?.name, m.red?.name,
             m.blue?.dojo, m.red?.dojo
           ].join(' ').toLowerCase();
