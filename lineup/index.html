@@ -464,7 +464,7 @@
 
     /* Pull to refresh */
     .ptr-indicator {
-      position: absolute;
+      position: fixed;
       top: 0;
       left: 0;
       right: 0;
@@ -474,12 +474,13 @@
       align-items: flex-end;
       justify-content: center;
       pointer-events: none;
-      z-index: 50;
-      transition: height 0.15s ease;
+      z-index: 150;
+      transition: height 0.2s ease;
+      background: linear-gradient(to bottom, rgba(15,15,26,0.95), transparent);
     }
 
     .ptr-content {
-      padding-bottom: 12px;
+      padding-bottom: 14px;
       color: var(--text-muted);
       font-size: 0.8rem;
       display: flex;
@@ -491,8 +492,8 @@
     }
 
     .ptr-spinner {
-      width: 22px;
-      height: 22px;
+      width: 24px;
+      height: 24px;
       border: 2.5px solid var(--border);
       border-top-color: var(--blue);
       border-radius: 50%;
@@ -500,7 +501,7 @@
     }
 
     .ptr-arrow {
-      font-size: 1.2rem;
+      font-size: 1.3rem;
       transition: transform 0.2s;
     }
 
@@ -513,11 +514,39 @@
     }
 
     body.ptr-refreshing .ptr-indicator {
-      height: 56px !important;
+      height: 60px !important;
     }
 
     body.ptr-refreshing .ptr-content {
       opacity: 1;
+    }
+
+
+    .filter-toggle-row {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+    }
+
+    .toggle-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      user-select: none;
+    }
+
+    .toggle-label input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--blue);
+      cursor: pointer;
+    }
+
+    .toggle-label input[type="checkbox"]:checked + .toggle-text {
+      color: var(--text);
     }
 
   </style>
@@ -556,6 +585,12 @@
         <option value="">全部場地</option>
       </select>
       <input type="text" id="filterSearch" placeholder="搜尋姓名 / 場次...">
+    </div>
+    <div class="filter-toggle-row">
+      <label class="toggle-label">
+        <input type="checkbox" id="hideCompleted">
+        <span class="toggle-text">隱藏已完成</span>
+      </label>
     </div>
   </div>
 
@@ -599,6 +634,7 @@
       document.getElementById('filterCategory').addEventListener('change', renderMatches);
       document.getElementById('filterVenue').addEventListener('change', renderMatches);
       document.getElementById('filterSearch').addEventListener('input', debounce(renderMatches, 250));
+      document.getElementById('hideCompleted').addEventListener('change', renderMatches);
     });
 
     async function loadData(silent = false) {
@@ -665,10 +701,15 @@
       const cat = document.getElementById('filterCategory').value;
       const ven = document.getElementById('filterVenue').value;
       const search = document.getElementById('filterSearch').value.trim().toLowerCase();
+      const hideCompleted = document.getElementById('hideCompleted').checked;
 
       return allMatches.filter(m => {
         if (cat && m.category !== cat) return false;
         if (ven && m.venue !== ven) return false;
+        if (hideCompleted) {
+          const hasResult = m.blue?.result === '勝方' || m.red?.result === '勝方' || m.status === '已完成';
+          if (hasResult) return false;
+        }
         if (search) {
           const text = [
             m.matchId, m.category,
