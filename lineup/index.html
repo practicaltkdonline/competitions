@@ -549,6 +549,12 @@
       color: var(--text);
     }
 
+
+    .modal-btn.clear {
+      background: #475569;
+      color: #e2e8f0;
+    }
+
   </style>
 </head>
 <body>
@@ -611,6 +617,7 @@
       <div class="modal-actions">
         <button class="modal-btn blue" id="btnBlueWin">🔵 藍方勝</button>
         <button class="modal-btn red" id="btnRedWin">🔴 紅方勝</button>
+        <button class="modal-btn clear" id="btnClear" style="display:none;">⚪ 清除賽果</button>
         <button class="modal-btn cancel" onclick="closeModal()">取消</button>
       </div>
     </div>
@@ -801,6 +808,8 @@
       `;
 
       const confirmArea = document.getElementById('modalConfirmArea');
+      const btnClear = document.getElementById('btnClear');
+
       if (hasResult) {
         confirmArea.style.display = 'block';
         confirmArea.innerHTML = `
@@ -809,10 +818,12 @@
         `;
         document.getElementById('btnBlueWin').style.display = 'none';
         document.getElementById('btnRedWin').style.display = 'none';
+        btnClear.style.display = 'none';
       } else {
         confirmArea.style.display = 'none';
         document.getElementById('btnBlueWin').style.display = 'block';
         document.getElementById('btnRedWin').style.display = 'block';
+        btnClear.style.display = 'none';
       }
 
       document.getElementById('modalOverlay').classList.add('show');
@@ -822,6 +833,7 @@
       document.getElementById('modalConfirmArea').style.display = 'none';
       document.getElementById('btnBlueWin').style.display = 'block';
       document.getElementById('btnRedWin').style.display = 'block';
+      document.getElementById('btnClear').style.display = 'block';
     }
 
     function closeModal() {
@@ -831,20 +843,51 @@
 
     document.getElementById('btnBlueWin').addEventListener('click', () => submitResult('藍'));
     document.getElementById('btnRedWin').addEventListener('click', () => submitResult('紅'));
+    document.getElementById('btnClear').addEventListener('click', () => submitResult('clear'));
 
     document.getElementById('modalOverlay').addEventListener('click', (e) => {
       if (e.target === document.getElementById('modalOverlay')) closeModal();
     });
 
+    /**
+     * 樂觀更新：先改畫面，再背景寫入 Google Sheet
+     */
     async function submitResult(side) {
       if (!currentMatch || isUpdating) return;
 
       isUpdating = true;
       const matchId = currentMatch.matchId;
+      const matchIndex = allMatches.findIndex(m => m.matchId === matchId);
+      if (matchIndex === -1) {
+        isUpdating = false;
+        return;
+      }
 
+      // 備份舊資料，失敗時還原
+      const backup = JSON.parse(JSON.stringify(allMatches[matchIndex]));
+
+      // === 樂觀更新畫面 ===
+      const m = allMatches[matchIndex];
+      if (side === 'clear') {
+        if (m.blue) m.blue.result = '';
+        if (m.red) m.red.result = '';
+        m.status = '未開始';
+      } else if (side === '藍') {
+        if (m.blue) m.blue.result = '勝方';
+        if (m.red) m.red.result = '負方';
+        m.status = '已完成';
+      } else if (side === '紅') {
+        if (m.blue) m.blue.result = '負方';
+        if (m.red) m.red.result = '勝方';
+        m.status = '已完成';
+      }
+
+      renderMatches();
+      closeModal();
+      showToast(side === 'clear' ? '已清除賽果' : `已記錄${side}方勝`, 'success');
+
+      // === 背景寫入 Google Sheet ===
       try {
-        showToast('正在更新...', 'success');
-
         const res = await fetch(API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -858,13 +901,15 @@
 
         if (!json.success) throw new Error(json.error || '更新失敗');
 
-        showToast(json.message || '更新成功', 'success');
-        closeModal();
-        await loadData(true);
+        // 成功後靜默再拉一次最新資料（確保與 Sheet 同步）
+        setTimeout(() => loadData(true), 800);
 
       } catch (err) {
         console.error(err);
-        showToast('更新失敗：' + err.message, 'error');
+        // 還原畫面
+        allMatches[matchIndex] = backup;
+        renderMatches();
+        showToast('儲存失敗，已還原：' + err.message, 'error');
       } finally {
         isUpdating = false;
       }
