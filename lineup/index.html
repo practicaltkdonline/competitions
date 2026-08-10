@@ -1033,6 +1033,65 @@
     // 正在寫入 Google Sheet 的場次（樂觀更新保護）
     const pendingWrites = new Set();
 
+    // ========== IndexedDB 快取（stale-while-revalidate）==========
+    const IDB_NAME = 'lineup-cache';
+    const IDB_VERSION = 1;
+    const IDB_STORE = 'snapshots';
+
+    function openIDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => resolve(req.result);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(IDB_STORE)) {
+            db.createObjectStore(IDB_STORE, { keyPath: 'id' });
+          }
+        };
+      });
+    }
+
+    async function idbGetLatest() {
+      try {
+        const db = await openIDB();
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction(IDB_STORE, 'readonly');
+          const store = tx.objectStore(IDB_STORE);
+          const req = store.get('latest');
+          req.onsuccess = () => resolve(req.result || null);
+          req.onerror = () => reject(req.error);
+        });
+      } catch (e) {
+        console.warn('IDB get failed', e);
+        return null;
+      }
+    }
+
+    async function idbSaveLatest(matches, live) {
+      try {
+        const db = await openIDB();
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction(IDB_STORE, 'readwrite');
+          const store = tx.objectStore(IDB_STORE);
+          const data = {
+            id: 'latest',
+            matches: matches || [],
+            live: live || [],
+            savedAt: new Date().toISOString()
+          };
+          const req = store.put(data);
+          req.onsuccess = () => resolve(true);
+          req.onerror = () => reject(req.error);
+        });
+      } catch (e) {
+        console.warn('IDB save failed', e);
+        return false;
+      }
+    }
+
+
+
     document.addEventListener('DOMContentLoaded', () => {
       loadData();
       startAutoRefresh();
@@ -1071,6 +1130,28 @@
         document.getElementById('syncText').textContent = '更新中...';
       }
 
+      // 1) 先讀 IndexedDB 快取，立刻上屏（僅首次或尚無資料時）
+      if (allMatches.length === 0) {
+        try {
+          const cached = await idbGetLatest();
+          if (cached && cached.matches && cached.matches.length) {
+            allMatches = cached.matches;
+            updateFilterOptions();
+            renderLiveBoard(cached.live || []);
+            renderMatches();
+            document.getElementById('syncText').textContent = '快取資料';
+            if (cached.savedAt) {
+              const t = new Date(cached.savedAt);
+              document.getElementById('lastUpdate').textContent =
+                '快取：' + t.toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            }
+          }
+        } catch (e) {
+          console.warn(e);
+        }
+      }
+
+      // 2) 背景拉網路最新資料
       try {
         const res = await fetch(API_URL + '?action=getAll&t=' + Date.now());
         const json = await res.json();
@@ -1079,14 +1160,14 @@
 
         const incoming = json.data || [];
 
-        // 合併：保留仍在 pending 的樂觀資料，避免被舊 Sheet 資料覆蓋
+        // 合併：保留仍在 pending 的樂觀資料
         if (pendingWrites.size > 0 && allMatches.length > 0) {
           const localMap = {};
           allMatches.forEach(m => { localMap[m.matchId] = m; });
 
           allMatches = incoming.map(m => {
             if (pendingWrites.has(m.matchId) && localMap[m.matchId]) {
-              return localMap[m.matchId]; // 保留樂觀結果
+              return localMap[m.matchId];
             }
             return m;
           });
@@ -1098,16 +1179,24 @@
         renderLiveBoard(json.live || []);
         renderMatches();
 
+        // 寫入 IndexedDB
+        idbSaveLatest(allMatches, json.live || []);
+
         document.getElementById('syncDot').classList.remove('error');
         document.getElementById('syncText').textContent = '即時更新中';
-        document.getElementById('lastUpdate').textContent = 
+        document.getElementById('lastUpdate').textContent =
           '最後更新：' + new Date().toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
       } catch (err) {
         console.error(err);
         document.getElementById('syncDot').classList.add('error');
-        document.getElementById('syncText').textContent = '連線異常';
-        if (!silent) showToast('載入失敗：' + err.message, 'error');
+        if (allMatches.length > 0) {
+          document.getElementById('syncText').textContent = '離線（使用快取）';
+          if (!silent) showToast('網路異常，顯示快取資料', 'error');
+        } else {
+          document.getElementById('syncText').textContent = '連線異常';
+          if (!silent) showToast('載入失敗：' + err.message, 'error');
+        }
       }
     }
 
