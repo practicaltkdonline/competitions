@@ -920,6 +920,44 @@
       margin-top: 8px;
     }
 
+
+    .filters {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .filter-row {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 8px;
+      width: 100%;
+    }
+    .filter-row select {
+      flex: 1;
+      min-width: 0;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+    }
+    .filter-row-search .search-wrap {
+      flex: 1;
+      width: 100%;
+      min-width: 0;
+    }
+    .filter-row-search input {
+      width: 100%;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+    }
+
   </style>
 </head>
 <body>
@@ -958,26 +996,35 @@
     </div>
     <div class="filter-panel" id="filterPanel">
       <div class="filters">
-        <select id="filterCategory">
-          <option value="">全部量級</option>
-        </select>
-        <select id="filterRound">
-          <option value="">全部輪次</option>
-        </select>
-        <select id="filterVenue">
-          <option value="">全部場區</option>
-        </select>
-        <select id="filterStatus">
-          <option value="">全部狀態</option>
-          <option value="未開始">未開始</option>
-          <option value="召集中">召集中</option>
-          <option value="下一場">下一場</option>
-          <option value="進行中">進行中</option>
-          <option value="已完成">已完成</option>
-        </select>
-        <div class="search-wrap">
-          <input type="text" id="filterSearch" placeholder="搜尋姓名 / 場次 / 道場..." autocomplete="off">
-          <div class="suggest-list" id="suggestList"></div>
+        <div class="filter-row">
+          <select id="filterDate">
+            <option value="">全部日期</option>
+          </select>
+          <select id="filterCategory">
+            <option value="">全部量級</option>
+          </select>
+        </div>
+        <div class="filter-row">
+          <select id="filterVenue">
+            <option value="">全部場區</option>
+          </select>
+          <select id="filterRound">
+            <option value="">全部輪次</option>
+          </select>
+          <select id="filterStatus">
+            <option value="">全部狀態</option>
+            <option value="未開始">未開始</option>
+            <option value="召集中">召集中</option>
+            <option value="下一場">下一場</option>
+            <option value="進行中">進行中</option>
+            <option value="已完成">已完成</option>
+          </select>
+        </div>
+        <div class="filter-row filter-row-search">
+          <div class="search-wrap">
+            <input type="text" id="filterSearch" placeholder="搜尋姓名 / 場次 / 道場..." autocomplete="off">
+            <div class="suggest-list" id="suggestList"></div>
+          </div>
         </div>
       </div>
       <div class="filter-toggle-row">
@@ -1096,10 +1143,15 @@
       loadData();
       startAutoRefresh();
 
-      document.getElementById('filterCategory').addEventListener('change', renderMatches);
-      document.getElementById('filterRound').addEventListener('change', renderMatches);
-      document.getElementById('filterVenue').addEventListener('change', renderMatches);
-      document.getElementById('filterStatus').addEventListener('change', renderMatches);
+      function onFilterChange() {
+        updateFilterOptions();
+        renderMatches();
+      }
+      document.getElementById('filterCategory').addEventListener('change', onFilterChange);
+      document.getElementById('filterDate').addEventListener('change', onFilterChange);
+      document.getElementById('filterRound').addEventListener('change', onFilterChange);
+      document.getElementById('filterVenue').addEventListener('change', onFilterChange);
+      document.getElementById('filterStatus').addEventListener('change', onFilterChange);
       document.getElementById('filterSearch').addEventListener('input', onSearchInput);
       document.getElementById('filterSearch').addEventListener('focus', onSearchInput);
       document.getElementById('hideCompleted').addEventListener('change', renderMatches);
@@ -1163,11 +1215,12 @@
         // 合併：保留仍在 pending 的樂觀資料
         if (pendingWrites.size > 0 && allMatches.length > 0) {
           const localMap = {};
-          allMatches.forEach(m => { localMap[m.matchId] = m; });
+          allMatches.forEach(m => { localMap[m.id || m.matchId] = m; });
 
           allMatches = incoming.map(m => {
-            if (pendingWrites.has(m.matchId) && localMap[m.matchId]) {
-              return localMap[m.matchId];
+            const key = m.id || m.matchId;
+            if (pendingWrites.has(key) && localMap[key]) {
+              return localMap[key];
             }
             return m;
           });
@@ -1278,6 +1331,7 @@
       if (!badge) return;
       let n = 0;
       if (document.getElementById('filterCategory')?.value) n++;
+      if (document.getElementById('filterDate')?.value) n++;
       if (document.getElementById('filterRound')?.value) n++;
       if (document.getElementById('filterVenue')?.value) n++;
       if (document.getElementById('filterStatus')?.value) n++;
@@ -1288,44 +1342,84 @@
     }
 
     function updateFilterOptions() {
-      const categories = [...new Set(allMatches.map(m => m.category).filter(Boolean))].sort();
-      const rounds = [...new Set(allMatches.map(m => m.round).filter(Boolean))];
-      // 輪次排序：依常見比賽順序
-      const roundOrder = ['16強', '8強', '4強', '準決賽', '決賽', '季軍賽'];
-      rounds.sort((a, b) => {
-        const ia = roundOrder.indexOf(a);
-        const ib = roundOrder.indexOf(b);
-        if (ia === -1 && ib === -1) return a.localeCompare(b);
-        if (ia === -1) return 1;
-        if (ib === -1) return -1;
-        return ia - ib;
-      });
-      const venues = [...new Set(allMatches.map(m => m.venue).filter(Boolean))].sort();
+      const el = {
+        date: document.getElementById('filterDate'),
+        category: document.getElementById('filterCategory'),
+        venue: document.getElementById('filterVenue'),
+        round: document.getElementById('filterRound'),
+        status: document.getElementById('filterStatus')
+      };
 
-      const catSelect = document.getElementById('filterCategory');
-      const roundSelect = document.getElementById('filterRound');
-      const venSelect = document.getElementById('filterVenue');
+      const selected = {
+        date: el.date?.value || '',
+        category: el.category?.value || '',
+        venue: el.venue?.value || '',
+        round: el.round?.value || '',
+        status: el.status?.value || ''
+      };
 
-      const currentCat = catSelect.value;
-      const currentRound = roundSelect ? roundSelect.value : '';
-      const currentVen = venSelect.value;
-
-      catSelect.innerHTML = '<option value="">全部量級</option>' + 
-        categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
-      if (roundSelect) {
-        roundSelect.innerHTML = '<option value="">全部輪次</option>' + 
-          rounds.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
-        roundSelect.value = currentRound;
+      // 依「其他已選條件」過濾，再抽出該欄唯一值（連動篩選）
+      function poolExcluding(excludeKey) {
+        return allMatches.filter(m => {
+          if (excludeKey !== 'date' && selected.date && (m.date || '') !== selected.date) return false;
+          if (excludeKey !== 'category' && selected.category && m.category !== selected.category) return false;
+          if (excludeKey !== 'venue' && selected.venue && m.venue !== selected.venue) return false;
+          if (excludeKey !== 'round' && selected.round && m.round !== selected.round) return false;
+          if (excludeKey !== 'status' && selected.status && m.status !== selected.status) return false;
+          return true;
+        });
       }
-      venSelect.innerHTML = '<option value="">全部場區</option>' + 
-        venues.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
 
-      catSelect.value = currentCat;
-      venSelect.value = currentVen;
+      function uniqueSorted(arr, orderList) {
+        const set = [...new Set(arr.filter(Boolean))];
+        if (orderList) {
+          set.sort((a, b) => {
+            const ia = orderList.indexOf(a);
+            const ib = orderList.indexOf(b);
+            if (ia === -1 && ib === -1) return String(a).localeCompare(String(b), 'zh-HK');
+            if (ia === -1) return 1;
+            if (ib === -1) return -1;
+            return ia - ib;
+          });
+        } else {
+          set.sort((a, b) => String(a).localeCompare(String(b), 'zh-HK'));
+        }
+        return set;
+      }
+
+      const roundOrder = ['32強', '16強', '8強', '4強', '準決賽', '決賽', '季軍賽'];
+      const statusOrder = ['未開始', '召集中', '下一場', '進行中', '已完成'];
+
+      const dates = uniqueSorted(poolExcluding('date').map(m => m.date));
+      const categories = uniqueSorted(poolExcluding('category').map(m => m.category));
+      const venues = uniqueSorted(poolExcluding('venue').map(m => m.venue));
+      const rounds = uniqueSorted(poolExcluding('round').map(m => m.round), roundOrder);
+      const statuses = uniqueSorted(poolExcluding('status').map(m => m.status), statusOrder);
+
+      function refill(selectEl, emptyLabel, values, current) {
+        if (!selectEl) return '';
+        selectEl.innerHTML = `<option value="">${emptyLabel}</option>` +
+          values.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+        // 目前選項仍有效才保留，否則清空
+        if (current && values.includes(current)) {
+          selectEl.value = current;
+          return current;
+        }
+        selectEl.value = '';
+        return '';
+      }
+
+      selected.date = refill(el.date, '全部日期', dates, selected.date);
+      selected.category = refill(el.category, '全部量級', categories, selected.category);
+      selected.venue = refill(el.venue, '全部場區', venues, selected.venue);
+      selected.round = refill(el.round, '全部輪次', rounds, selected.round);
+      selected.status = refill(el.status, '全部狀態', statuses, selected.status);
     }
+
 
     function getFilteredMatches() {
       const cat = document.getElementById('filterCategory').value;
+      const date = document.getElementById('filterDate')?.value || '';
       const round = document.getElementById('filterRound')?.value || '';
       const ven = document.getElementById('filterVenue').value;
       const status = document.getElementById('filterStatus')?.value || '';
@@ -1334,6 +1428,7 @@
 
       return allMatches.filter(m => {
         if (cat && m.category !== cat) return false;
+        if (date && (m.date || '') !== date) return false;
         if (round && m.round !== round) return false;
         if (ven && m.venue !== ven) return false;
         if (status && m.status !== status) return false;
@@ -1384,14 +1479,15 @@
         else if (redWin) vsContent = `<div class="vs-result result-win-red">紅勝</div>`;
 
         return `
-          <div class="match-card ${cardClass}" data-match-id="${escapeHtml(m.matchId)}" onclick="openMatchModal('${escapeHtml(m.matchId)}')">
+          <div class="match-card ${cardClass}" data-match-id="${escapeHtml(m.id || m.matchId)}" data-match-no="${escapeHtml(m.matchId)}" onclick="openMatchModal('${escapeHtml(m.id || m.matchId)}')">
             <div class="match-header">
               <div>
                 <span class="match-id">${escapeHtml(m.matchId)}</span>
                 <span style="margin-left:8px">${escapeHtml(m.round || '')}</span>
+                ${m.date ? `<span style="margin-left:8px;opacity:0.75">${escapeHtml(m.date)}</span>` : ''}
               </div>
               <div class="match-meta">
-                <span>${escapeHtml(m.venue || '')}${m.time ? ' · ' + escapeHtml(m.time) : ''}</span>
+                <span>${escapeHtml(m.venue || '')}${m.time ? ' · ' + escapeHtml(m.time) : ''}${m.eventName ? ' · ' + escapeHtml(m.eventName) : ''}</span>
                 <span class="badge badge-status-${escapeHtml(m.status || '未開始')}">${escapeHtml(m.status || '未開始')}</span>
               </div>
             </div>
@@ -1399,7 +1495,7 @@
               <div class="athlete blue ${blueWin ? 'winner' : ''} ${redWin ? 'loser' : ''}">
                 <div class="name-row">
                   <div class="athlete-name">${escapeHtml(m.blue?.name || '—')}</div>
-                  ${m.blue?.name && m.blue.name !== '—' ? `<button class="path-icon" data-athlete="${escapeHtml(m.blue.name)}" onclick="event.stopPropagation();showAthletePath('${escapeHtml(m.blue.name)}')" title="出線路徑">↗</button>` : ''}
+                  ${m.blue?.name && m.blue.name !== '—' ? `<button class="path-icon" data-athlete="${escapeHtml(m.blue.name)}" onclick="event.stopPropagation();showAthletePath('${escapeHtml(m.blue.name)}', '${escapeHtml(m.date || '')}')" title="出線路徑">↗</button>` : ''}
                 </div>
                 <div class="athlete-info">
                   ${escapeHtml(m.blue?.dojo || '')}<br>
@@ -1411,7 +1507,7 @@
               <div class="athlete red ${redWin ? 'winner' : ''} ${blueWin ? 'loser' : ''}">
                 <div class="name-row">
                   <div class="athlete-name">${escapeHtml(m.red?.name || '—')}</div>
-                  ${m.red?.name && m.red.name !== '—' ? `<button class="path-icon" data-athlete="${escapeHtml(m.red.name)}" onclick="event.stopPropagation();showAthletePath('${escapeHtml(m.red.name)}')" title="出線路徑">↗</button>` : ''}
+                  ${m.red?.name && m.red.name !== '—' ? `<button class="path-icon" data-athlete="${escapeHtml(m.red.name)}" onclick="event.stopPropagation();showAthletePath('${escapeHtml(m.red.name)}', '${escapeHtml(m.date || '')}')" title="出線路徑">↗</button>` : ''}
                 </div>
                 <div class="athlete-info">
                   ${escapeHtml(m.red?.dojo || '')}<br>
@@ -1429,8 +1525,8 @@
       }).join('');
     }
 
-    function openMatchModal(matchId) {
-      const match = allMatches.find(m => m.matchId === matchId);
+    function openMatchModal(matchKey) {
+      const match = allMatches.find(m => (m.id || m.matchId) === matchKey || m.matchId === matchKey);
       if (!match) return;
 
       currentMatch = match;
@@ -1490,8 +1586,10 @@
     async function submitResult(side) {
       if (!currentMatch) return;
 
+      const matchKey = currentMatch.id || currentMatch.matchId;
       const matchId = currentMatch.matchId;
-      const matchIndex = allMatches.findIndex(m => m.matchId === matchId);
+      const matchDate = currentMatch.date || '';
+      const matchIndex = allMatches.findIndex(m => (m.id || m.matchId) === matchKey);
       if (matchIndex === -1) return;
 
       // 備份舊資料，失敗時還原
@@ -1514,10 +1612,10 @@
       }
 
       // 標記為寫入中，防止被舊資料覆蓋
-      pendingWrites.add(matchId);
+      pendingWrites.add(matchKey);
 
       // 只更新這一張卡片（避免整頁閃爍）
-      updateSingleCard(matchId);
+      updateSingleCard(matchKey);
       closeModal();
       showToast(side === 'clear' ? '已清除賽果' : `已記錄${side}方勝`, 'success');
 
@@ -1528,6 +1626,7 @@
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({
             matchId: matchId,
+            date: matchDate,
             winnerSide: side
           })
         });
@@ -1537,14 +1636,14 @@
         if (!json.success) throw new Error(json.error || '更新失敗');
 
         // 寫入成功，解除保護
-        pendingWrites.delete(matchId);
+        pendingWrites.delete(matchKey);
 
       } catch (err) {
         console.error(err);
         // 還原
-        pendingWrites.delete(matchId);
+        pendingWrites.delete(matchKey);
         allMatches[matchIndex] = backup;
-        updateSingleCard(matchId);
+        updateSingleCard(matchKey);
         showToast('儲存失敗，已還原：' + err.message, 'error');
       }
     }
@@ -1552,15 +1651,15 @@
     /**
      * 只更新指定場次的那一張卡片，避免整頁重繪
      */
-    function updateSingleCard(matchId) {
-      const card = document.querySelector(`.match-card[data-match-id="${matchId}"]`);
+    function updateSingleCard(matchKey) {
+      const card = document.querySelector(`.match-card[data-match-id="${matchKey}"]`);
       if (!card) {
         // 找不到就退回整頁渲染
         renderMatches();
         return;
       }
 
-      const m = allMatches.find(x => x.matchId === matchId);
+      const m = allMatches.find(x => (x.id || x.matchId) === matchKey || x.matchId === matchKey);
       if (!m) return;
 
       const blueWin = m.blue?.result === '勝方';
@@ -1594,7 +1693,7 @@
           <div class="athlete blue ${blueWin ? 'winner' : ''} ${redWin ? 'loser' : ''}">
             <div class="name-row">
               <div class="athlete-name">${escapeHtml(m.blue?.name || '—')}</div>
-              ${m.blue?.name && m.blue.name !== '—' ? `<button class="path-icon" data-athlete="${escapeHtml(m.blue.name)}" onclick="event.stopPropagation();showAthletePath('${escapeHtml(m.blue.name)}')" title="出線路徑">↗</button>` : ''}
+              ${m.blue?.name && m.blue.name !== '—' ? `<button class="path-icon" data-athlete="${escapeHtml(m.blue.name)}" onclick="event.stopPropagation();showAthletePath('${escapeHtml(m.blue.name)}', '${escapeHtml(m.date || '')}')" title="出線路徑">↗</button>` : ''}
             </div>
             <div class="athlete-info">
               ${escapeHtml(m.blue?.dojo || '')}<br>
@@ -1606,7 +1705,7 @@
           <div class="athlete red ${redWin ? 'winner' : ''} ${blueWin ? 'loser' : ''}">
             <div class="name-row">
               <div class="athlete-name">${escapeHtml(m.red?.name || '—')}</div>
-              ${m.red?.name && m.red.name !== '—' ? `<button class="path-icon" data-athlete="${escapeHtml(m.red.name)}" onclick="event.stopPropagation();showAthletePath('${escapeHtml(m.red.name)}')" title="出線路徑">↗</button>` : ''}
+              ${m.red?.name && m.red.name !== '—' ? `<button class="path-icon" data-athlete="${escapeHtml(m.red.name)}" onclick="event.stopPropagation();showAthletePath('${escapeHtml(m.red.name)}', '${escapeHtml(m.date || '')}')" title="出線路徑">↗</button>` : ''}
             </div>
             <div class="athlete-info">
               ${escapeHtml(m.red?.dojo || '')}<br>
@@ -1653,9 +1752,10 @@
           if (!seen.has(key)) {
             seen.add(key);
             results.push({
+              id: m.id || m.matchId,
               matchId: m.matchId,
               title: m.matchId,
-              meta: `${m.round || ''} · ${m.category || ''} · ${m.venue || ''}`,
+              meta: `${m.date || ''} · ${m.round || ''} · ${m.category || ''} · ${m.venue || ''}`.replace(/^[·\s]+/, ''),
               type: 'match'
             });
           }
@@ -1668,9 +1768,10 @@
             if (!seen.has(key)) {
               seen.add(key);
               results.push({
+                id: m.id || m.matchId,
                 matchId: m.matchId,
                 title: c.name,
-                meta: `${c.dojo} · ${m.matchId} · ${m.round || ''}`,
+                meta: `${c.dojo} · ${m.matchId} · ${m.date || ''} · ${m.round || ''}`,
                 type: 'athlete'
               });
             }
@@ -1694,7 +1795,7 @@
       }
 
       list.innerHTML = results.map(r => `
-        <div class="suggest-item" onclick="selectSuggestion('${escapeHtml(r.matchId)}')">
+        <div class="suggest-item" onclick="selectSuggestion('${escapeHtml(r.id || r.matchId)}')">
           <div class="s-name">${escapeHtml(r.title)}</div>
           <div class="s-meta">${escapeHtml(r.meta)}</div>
         </div>
@@ -1709,13 +1810,12 @@
 
     function selectSuggestion(matchId) {
       hideSuggestions();
-      // 清掉搜尋，顯示全部（或保留過濾也可，這裡選擇跳轉為主）
       document.getElementById('filterSearch').value = '';
       renderMatches();
 
-      // 等 DOM 更新後再滾動
       setTimeout(() => {
-        const card = document.querySelector(`.match-card[data-match-id="${matchId}"]`);
+        let card = document.querySelector(`.match-card[data-match-id="${matchId}"]`);
+        if (!card) card = document.querySelector(`.match-card[data-match-no="${matchId}"]`);
         if (!card) {
           showToast('找不到該場次', 'error');
           return;
@@ -1732,10 +1832,10 @@
 
 
     // ========== Athlete Path (出線路徑) ==========
-    function showAthletePath(athleteName) {
+    function showAthletePath(athleteName, scopeDate) {
       if (!athleteName || athleteName === '—') return;
 
-      const path = findAthletePath(athleteName);
+      const path = findAthletePath(athleteName, scopeDate || '');
       if (path.length === 0) {
         showToast('找不到此選手的場次', 'error');
         return;
@@ -1784,7 +1884,7 @@
           : '';
 
         return `
-          <div class="path-item ${statusClass}" data-match-id="${escapeHtml(p.matchId)}" onclick="jumpToMatch('${escapeHtml(p.matchId)}')">
+          <div class="path-item ${statusClass}" data-match-id="${escapeHtml(p.matchId)}" onclick="jumpToMatch('${escapeHtml(p.id || p.matchId)}')">
             <div class="path-item-header">
               <span class="path-item-match">${escapeHtml(p.round || '')} · ${escapeHtml(p.matchId)}</span>
               ${resultHtml}
@@ -1800,7 +1900,7 @@
       document.getElementById('pathModalOverlay').classList.add('show');
     }
 
-    function jumpToMatch(matchId) {
+    function jumpToMatch(matchRef) {
       closePathModal();
       // 清掉搜尋，讓卡片較容易出現
       const searchInput = document.getElementById('filterSearch');
@@ -1811,7 +1911,11 @@
       }
 
       setTimeout(() => {
-        const card = document.querySelector(`.match-card[data-match-id="${matchId}"]`);
+        // 先試複合 id，再試場次編號（看板只有場次編號）
+        let card = document.querySelector(`.match-card[data-match-id="${matchRef}"]`);
+        if (!card) {
+          card = document.querySelector(`.match-card[data-match-no="${matchRef}"]`);
+        }
         if (!card) {
           showToast('找不到該場次（可能被篩選隱藏）', 'error');
           return;
@@ -1831,65 +1935,62 @@
       if (e.target === document.getElementById('pathModalOverlay')) closePathModal();
     });
 
-    function findAthletePath(athleteName) {
+    function findAthletePath(athleteName, scopeDate) {
       const path = [];
       const visited = new Set();
+      // 只在同一比賽日期內追蹤（不跨日）
+      const pool = scopeDate
+        ? allMatches.filter(m => (m.date || '') === scopeDate)
+        : allMatches;
 
-      // 佔位名稱：A4007勝方 → 從該場勝方邊往後追
       const placeholderMatch = athleteName.match(/^([A-Za-z0-9\-]+)勝方$/);
       if (placeholderMatch) {
         const fromId = placeholderMatch[1];
-        // 找出「上場場次 = fromId」的下一場作為起點（不把 fromId 本場當路徑起點，除非需要）
-        const nextMatches = allMatches.filter(m => {
+        const nextMatches = pool.filter(m => {
           return m.blue?.previousMatch === fromId || m.red?.previousMatch === fromId;
         });
-        // 也包含名稱直接是佔位的場
-        const named = allMatches.filter(m =>
+        const named = pool.filter(m =>
           m.blue?.name === athleteName || m.red?.name === athleteName
         );
         const startMatches = [...nextMatches, ...named];
         startMatches.sort((a, b) => a.matchId.localeCompare(b.matchId));
 
         for (const m of startMatches) {
-          if (visited.has(m.matchId)) continue;
-          walkForward(m, fromId, athleteName, path, visited);
+          const key = m.id || m.matchId;
+          if (visited.has(key)) continue;
+          walkForward(m, fromId, athleteName, path, visited, pool);
         }
-        // 若完全沒下一場，至少顯示來源場
         if (path.length === 0) {
-          const origin = allMatches.find(m => m.matchId === fromId);
+          const origin = pool.find(m => m.matchId === fromId);
           if (origin) addMatchToPathByPrev(origin, null, athleteName, path, visited);
         }
         path.sort((a, b) => a.matchId.localeCompare(b.matchId));
         return path;
       }
 
-      // 真實姓名：從有該姓名的場次開始，沿 previousMatch 往後追
-      const directMatches = allMatches.filter(m =>
+      const directMatches = pool.filter(m =>
         m.blue?.name === athleteName || m.red?.name === athleteName
       );
       directMatches.sort((a, b) => a.matchId.localeCompare(b.matchId));
 
       for (const m of directMatches) {
-        if (visited.has(m.matchId)) continue;
-        // 第一場：用姓名判斷邊，上一場 ID 用本場 matchId 繼續往後
+        const key = m.id || m.matchId;
+        if (visited.has(key)) continue;
         addMatchToPathByPrev(m, null, athleteName, path, visited);
-        walkForwardFrom(m.matchId, athleteName, path, visited);
+        walkForwardFrom(m.matchId, athleteName, path, visited, pool);
       }
 
       path.sort((a, b) => a.matchId.localeCompare(b.matchId));
       return path;
     }
 
-    /**
-     * 從 currentId 往後找 previousMatch === currentId 的場，一路追到底
-     * 每一場用「哪一邊的上場場次 = 上一場」決定藍/紅
-     */
-    function walkForwardFrom(currentId, athleteName, path, visited) {
+    function walkForwardFrom(currentId, athleteName, path, visited, pool) {
       let safety = 0;
       while (safety < 20) {
         safety++;
-        const next = allMatches.find(nm => {
-          if (visited.has(nm.matchId)) return false;
+        const next = pool.find(nm => {
+          const key = nm.id || nm.matchId;
+          if (visited.has(key)) return false;
           const prevBlue = nm.blue?.previousMatch || '';
           const prevRed = nm.red?.previousMatch || '';
           return prevBlue === currentId || prevRed === currentId;
@@ -1900,18 +2001,15 @@
       }
     }
 
-    function walkForward(startMatch, fromId, athleteName, path, visited) {
+    function walkForward(startMatch, fromId, athleteName, path, visited, pool) {
       addMatchToPathByPrev(startMatch, fromId, athleteName, path, visited);
-      walkForwardFrom(startMatch.matchId, athleteName, path, visited);
+      walkForwardFrom(startMatch.matchId, athleteName, path, visited, pool);
     }
 
-    /**
-     * 根據「從哪一場晉級而來」決定邊與對手
-     * @param fromMatchId 上一場場次編號；null 表示用真實姓名對邊
-     */
     function addMatchToPathByPrev(m, fromMatchId, athleteName, path, visited) {
-      if (visited.has(m.matchId)) return;
-      visited.add(m.matchId);
+      const key = m.id || m.matchId;
+      if (visited.has(key)) return;
+      visited.add(key);
 
       let side = '';
       let athleteResult = '';
@@ -1919,7 +2017,6 @@
       let opponentDojo = '';
 
       if (fromMatchId) {
-        // 用上場場次對應決定邊（核心修正）
         if ((m.blue?.previousMatch || '') === fromMatchId) {
           side = '藍';
           athleteResult = m.blue?.result || '';
@@ -1941,11 +2038,9 @@
           opponent = m.blue?.name || '—';
           opponentDojo = m.blue?.dojo || '';
         } else {
-          // 後備：不應常走到
           opponent = m.red?.name || m.blue?.name || '—';
         }
       } else {
-        // 第一場或有真實姓名
         if (m.blue?.name === athleteName) {
           side = '藍';
           athleteResult = m.blue?.result || '';
@@ -1956,21 +2051,13 @@
           athleteResult = m.red?.result || '';
           opponent = m.blue?.name || '—';
           opponentDojo = m.blue?.dojo || '';
-        } else if ((athleteName || '').includes('勝方')) {
-          if (m.blue?.name === athleteName) {
-            side = '藍';
-            opponent = m.red?.name || '—';
-            opponentDojo = m.red?.dojo || '';
-          } else if (m.red?.name === athleteName) {
-            side = '紅';
-            opponent = m.blue?.name || '—';
-            opponentDojo = m.blue?.dojo || '';
-          }
         }
       }
 
       path.push({
+        id: key,
         matchId: m.matchId,
+        date: m.date || '',
         round: m.round,
         category: m.category,
         venue: m.venue,
