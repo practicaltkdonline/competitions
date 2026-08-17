@@ -958,6 +958,21 @@
       font-size: 0.85rem;
     }
 
+
+    .category-bar .cat-right {
+      text-align: right;
+      flex-shrink: 0;
+      margin-left: 8px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .category-bar .cat-left {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
   </style>
 </head>
 <body>
@@ -1483,11 +1498,9 @@
             <div class="match-header">
               <div>
                 <span class="match-id">${escapeHtml(m.matchId)}</span>
-                <span style="margin-left:8px">${escapeHtml(m.round || '')}</span>
-                ${m.date ? `<span style="margin-left:8px;opacity:0.75">${escapeHtml(m.date)}</span>` : ''}
               </div>
               <div class="match-meta">
-                <span>${escapeHtml(m.venue || '')}${m.time ? ' · ' + escapeHtml(m.time) : ''}${m.eventName ? ' · ' + escapeHtml(m.eventName) : ''}</span>
+                <span>${escapeHtml(m.venue || '')}${m.time ? ' · ' + escapeHtml(m.time) : ''}</span>
                 <span class="badge badge-status-${escapeHtml(m.status || '未開始')}">${escapeHtml(m.status || '未開始')}</span>
               </div>
             </div>
@@ -1517,8 +1530,8 @@
               </div>
             </div>
             <div class="category-bar">
-              <span>${escapeHtml(m.category || '')}</span>
-              <span>${hasResult ? (blueWin ? '藍方勝出' : redWin ? '紅方勝出' : '') : ''}</span>
+              <span class="cat-left">${escapeHtml(m.category || '')}</span>
+              <span class="cat-right">${escapeHtml(m.round || '')}</span>
             </div>
           </div>
         `;
@@ -1719,9 +1732,13 @@
       // 更新底部結果文字
       const catBar = card.querySelector('.category-bar');
       if (catBar) {
-        const rightSpan = catBar.querySelector('span:last-child');
+        const rightSpan = catBar.querySelector('.cat-right') || catBar.querySelector('span:last-child');
         if (rightSpan) {
-          rightSpan.textContent = hasResult ? (blueWin ? '藍方勝出' : redWin ? '紅方勝出' : '') : '';
+          rightSpan.textContent = m.round || '';
+        }
+        const leftSpan = catBar.querySelector('.cat-left') || catBar.querySelector('span:first-child');
+        if (leftSpan) {
+          leftSpan.textContent = m.category || '';
         }
       }
     }
