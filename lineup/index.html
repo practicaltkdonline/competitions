@@ -996,6 +996,26 @@
       color: var(--text);
     }
 
+
+    .filter-toggle-hint {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      opacity: 0.85;
+    }
+
+
+    .filter-toggle-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .filter-toggle-right .filter-toggle-hint {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      opacity: 0.9;
+    }
+
   </style>
 </head>
 <body>
@@ -1030,7 +1050,10 @@
         <span>篩選與搜尋</span>
         <span class="filter-toggle-badge" id="filterBadge">0</span>
       </div>
-      <span class="filter-toggle-arrow">▾</span>
+      <div class="filter-toggle-right">
+        <span class="filter-toggle-hint" id="filterToggleHint">點擊展開</span>
+        <span class="filter-toggle-arrow">▾</span>
+      </div>
     </div>
     <div class="filter-panel" id="filterPanel">
       <div class="filters">
@@ -1056,6 +1079,14 @@
             <option value="下一場">下一場</option>
             <option value="進行中">進行中</option>
             <option value="已完成">已完成</option>
+          </select>
+        </div>
+        <div class="filter-row">
+          <select id="filterCheckIn">
+            <option value="">全部報到時間</option>
+          </select>
+          <select id="filterMatchTime">
+            <option value="">全部比賽時間</option>
           </select>
         </div>
         <div class="filter-row filter-row-search">
@@ -1191,6 +1222,8 @@
       document.getElementById('filterRound').addEventListener('change', onFilterChange);
       document.getElementById('filterVenue').addEventListener('change', onFilterChange);
       document.getElementById('filterStatus').addEventListener('change', onFilterChange);
+      document.getElementById('filterCheckIn')?.addEventListener('change', onFilterChange);
+      document.getElementById('filterMatchTime')?.addEventListener('change', onFilterChange);
       document.getElementById('filterSearch').addEventListener('input', onSearchInput);
       document.getElementById('filterSearch').addEventListener('focus', onSearchInput);
       document.getElementById('hideCompleted').addEventListener('change', renderMatches);
@@ -1206,14 +1239,19 @@
       // 滑動列表時關閉建議（方案 E）
       const matchListEl = document.getElementById('matchList');
       if (matchListEl) {
-        matchListEl.addEventListener('scroll', () => hideSuggestions(), { passive: true });
+        matchListEl.addEventListener('scroll', () => {
+          hideSuggestions();
+          collapseFilterPanel();
+        }, { passive: true });
+        matchListEl.addEventListener('touchmove', () => {
+          hideSuggestions();
+          collapseFilterPanel();
+        }, { passive: true });
       }
-      // 頁面捲動也關閉
-      window.addEventListener('scroll', () => hideSuggestions(), { passive: true });
-      // 觸控滑動開始也關閉（手機更靈敏）
-      if (matchListEl) {
-        matchListEl.addEventListener('touchmove', () => hideSuggestions(), { passive: true });
-      }
+      window.addEventListener('scroll', () => {
+        hideSuggestions();
+        collapseFilterPanel();
+      }, { passive: true });
     });
 
     async function loadData(silent = false) {
@@ -1308,6 +1346,35 @@
 
     let liveBoardData = [];
 
+    /** 顯示用狀態：已完成 > 工作表2看板 > 工作表3 */
+    function buildLiveIndex() {
+      const current = new Set();
+      const next = new Set();
+      const calling = new Set();
+      (liveBoardData || []).forEach(row => {
+        if (row.current) current.add(row.current);
+        if (row.next) next.add(row.next);
+        (row.calling || []).forEach(id => calling.add(id));
+      });
+      return { current, next, calling };
+    }
+
+    function effectiveStatus(m) {
+      const hasResult = m.blue?.result === '勝方' || m.red?.result === '勝方'
+        || m.blue?.result === '負方' || m.red?.result === '負方'
+        || m.status === '已完成';
+      if (hasResult) return '已完成';
+
+      const live = buildLiveIndex();
+      const mid = m.matchId;
+      if (live.current.has(mid)) return '進行中';
+      if (live.next.has(mid)) return '下一場';
+      if (live.calling.has(mid)) return '召集中';
+      return m.status || '未開始';
+    }
+
+
+
     function renderLiveBoard(live) {
       liveBoardData = live || [];
       const board = document.getElementById('liveBoard');
@@ -1360,9 +1427,21 @@
     function toggleFilterPanel() {
       const panel = document.getElementById('filterPanel');
       const toggle = document.getElementById('filterToggle');
+      const hint = document.getElementById('filterToggleHint');
       if (!panel) return;
       const open = panel.classList.toggle('open');
       if (toggle) toggle.classList.toggle('open', open);
+      if (hint) hint.textContent = open ? '點擊收起' : '點擊展開';
+    }
+
+    function collapseFilterPanel() {
+      const panel = document.getElementById('filterPanel');
+      const toggle = document.getElementById('filterToggle');
+      const hint = document.getElementById('filterToggleHint');
+      if (!panel || !panel.classList.contains('open')) return;
+      panel.classList.remove('open');
+      if (toggle) toggle.classList.remove('open');
+      if (hint) hint.textContent = '點擊展開';
     }
 
     function updateFilterBadge() {
@@ -1374,6 +1453,8 @@
       if (document.getElementById('filterRound')?.value) n++;
       if (document.getElementById('filterVenue')?.value) n++;
       if (document.getElementById('filterStatus')?.value) n++;
+      if (document.getElementById('filterCheckIn')?.value) n++;
+      if (document.getElementById('filterMatchTime')?.value) n++;
       if (document.getElementById('filterSearch')?.value.trim()) n++;
       if (document.getElementById('hideCompleted')?.checked) n++;
       badge.textContent = n;
@@ -1382,7 +1463,7 @@
 
 
     function clearAllFilters() {
-      const ids = ['filterDate', 'filterCategory', 'filterVenue', 'filterRound', 'filterStatus'];
+      const ids = ['filterDate', 'filterCategory', 'filterVenue', 'filterRound', 'filterStatus', 'filterCheckIn', 'filterMatchTime'];
       ids.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
@@ -1403,7 +1484,9 @@
         category: document.getElementById('filterCategory'),
         venue: document.getElementById('filterVenue'),
         round: document.getElementById('filterRound'),
-        status: document.getElementById('filterStatus')
+        status: document.getElementById('filterStatus'),
+        checkIn: document.getElementById('filterCheckIn'),
+        matchTime: document.getElementById('filterMatchTime')
       };
 
       const selected = {
@@ -1411,17 +1494,20 @@
         category: el.category?.value || '',
         venue: el.venue?.value || '',
         round: el.round?.value || '',
-        status: el.status?.value || ''
+        status: el.status?.value || '',
+        checkIn: el.checkIn?.value || '',
+        matchTime: el.matchTime?.value || ''
       };
 
-      // 依「其他已選條件」過濾，再抽出該欄唯一值（連動篩選）
       function poolExcluding(excludeKey) {
         return allMatches.filter(m => {
           if (excludeKey !== 'date' && selected.date && (m.date || '') !== selected.date) return false;
           if (excludeKey !== 'category' && selected.category && m.category !== selected.category) return false;
           if (excludeKey !== 'venue' && selected.venue && m.venue !== selected.venue) return false;
           if (excludeKey !== 'round' && selected.round && m.round !== selected.round) return false;
-          if (excludeKey !== 'status' && selected.status && m.status !== selected.status) return false;
+          if (excludeKey !== 'status' && selected.status && effectiveStatus(m) !== selected.status) return false;
+          if (excludeKey !== 'checkIn' && selected.checkIn && (m.checkInTime || '') !== selected.checkIn) return false;
+          if (excludeKey !== 'matchTime' && selected.matchTime && (m.time || '') !== selected.matchTime) return false;
           return true;
         });
       }
@@ -1450,13 +1536,14 @@
       const categories = uniqueSorted(poolExcluding('category').map(m => m.category));
       const venues = uniqueSorted(poolExcluding('venue').map(m => m.venue));
       const rounds = uniqueSorted(poolExcluding('round').map(m => m.round), roundOrder);
-      const statuses = uniqueSorted(poolExcluding('status').map(m => m.status), statusOrder);
+      const statuses = uniqueSorted(poolExcluding('status').map(m => effectiveStatus(m)), statusOrder);
+      const checkIns = uniqueSorted(poolExcluding('checkIn').map(m => m.checkInTime));
+      const matchTimes = uniqueSorted(poolExcluding('matchTime').map(m => m.time));
 
       function refill(selectEl, emptyLabel, values, current) {
         if (!selectEl) return '';
         selectEl.innerHTML = `<option value="">${emptyLabel}</option>` +
           values.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
-        // 目前選項仍有效才保留，否則清空
         if (current && values.includes(current)) {
           selectEl.value = current;
           return current;
@@ -1470,6 +1557,8 @@
       selected.venue = refill(el.venue, '全部場區', venues, selected.venue);
       selected.round = refill(el.round, '全部輪次', rounds, selected.round);
       selected.status = refill(el.status, '全部狀態', statuses, selected.status);
+      selected.checkIn = refill(el.checkIn, '全部報到時間', checkIns, selected.checkIn);
+      selected.matchTime = refill(el.matchTime, '全部比賽時間', matchTimes, selected.matchTime);
     }
 
 
@@ -1479,6 +1568,8 @@
       const round = document.getElementById('filterRound')?.value || '';
       const ven = document.getElementById('filterVenue').value;
       const status = document.getElementById('filterStatus')?.value || '';
+      const checkIn = document.getElementById('filterCheckIn')?.value || '';
+      const matchTime = document.getElementById('filterMatchTime')?.value || '';
       const search = document.getElementById('filterSearch').value.trim().toLowerCase();
       const hideCompleted = document.getElementById('hideCompleted').checked;
 
@@ -1487,10 +1578,11 @@
         if (date && (m.date || '') !== date) return false;
         if (round && m.round !== round) return false;
         if (ven && m.venue !== ven) return false;
-        if (status && m.status !== status) return false;
+        if (status && effectiveStatus(m) !== status) return false;
+        if (checkIn && (m.checkInTime || '') !== checkIn) return false;
+        if (matchTime && (m.time || '') !== matchTime) return false;
         if (hideCompleted) {
-          const hasResult = m.blue?.result === '勝方' || m.red?.result === '勝方' || m.status === '已完成';
-          if (hasResult) return false;
+          if (effectiveStatus(m) === '已完成') return false;
         }
         if (search) {
           const tokens = search.split(/\s+/).filter(Boolean);
@@ -1499,15 +1591,16 @@
             m.blue?.name, m.red?.name,
             m.blue?.dojo, m.red?.dojo,
             m.blue?.coach, m.red?.coach,
-            m.blue?.athleteNo, m.red?.athleteNo
+            m.blue?.athleteNo, m.red?.athleteNo,
+            m.checkInTime, m.time
           ].join(' ').toLowerCase();
-          // 任一 token 命中即可；整段也試一次（例如「歐sir」）
           const ok = text.includes(search) || tokens.some(t => text.includes(t));
           if (!ok) return false;
         }
         return true;
       });
     }
+
 
     function renderMatches() {
       const list = document.getElementById('matchList');
@@ -1527,11 +1620,12 @@
         const redWin = m.red?.result === '勝方';
         const hasResult = blueWin || redWin || m.status === '已完成';
 
+        const dispStatus = effectiveStatus(m);
         let cardClass = 'pending';
-        if (m.status === '進行中') cardClass = 'ongoing';
-        else if (m.status === '下一場') cardClass = 'next-up';
-        else if (m.status === '召集中') cardClass = 'calling';
-        else if (hasResult || m.status === '已完成') cardClass = 'completed';
+        if (dispStatus === '進行中') cardClass = 'ongoing';
+        else if (dispStatus === '下一場') cardClass = 'next-up';
+        else if (dispStatus === '召集中') cardClass = 'calling';
+        else if (dispStatus === '已完成') cardClass = 'completed';
 
         let vsContent = 'VS';
         if (blueWin) vsContent = `<div class="vs-result result-win-blue">藍勝</div>`;
@@ -1544,8 +1638,8 @@
                 <span class="match-id">${escapeHtml(m.matchId)}</span>
               </div>
               <div class="match-meta">
-                <span>${escapeHtml(m.venue || '')}${m.time ? ' · ' + escapeHtml(m.time) : ''}</span>
-                <span class="badge badge-status-${escapeHtml(m.status || '未開始')}">${escapeHtml(m.status || '未開始')}</span>
+                <span>${[m.venue, m.checkInTime, m.time].filter(Boolean).map(x => escapeHtml(x)).join(' · ')}</span>
+                <span class="badge badge-status-${escapeHtml(dispStatus)}">${escapeHtml(dispStatus)}</span>
               </div>
             </div>
             <div class="athletes">
@@ -1725,11 +1819,12 @@
       const redWin = m.red?.result === '勝方';
       const hasResult = blueWin || redWin || m.status === '已完成';
 
+      const dispStatus = effectiveStatus(m);
       let cardClass = 'pending';
-      if (m.status === '進行中') cardClass = 'ongoing';
-      else if (m.status === '下一場') cardClass = 'next-up';
-      else if (m.status === '召集中') cardClass = 'calling';
-      else if (hasResult || m.status === '已完成') cardClass = 'completed';
+      if (dispStatus === '進行中') cardClass = 'ongoing';
+      else if (dispStatus === '下一場') cardClass = 'next-up';
+      else if (dispStatus === '召集中') cardClass = 'calling';
+      else if (dispStatus === '已完成') cardClass = 'completed';
 
       let vsContent = 'VS';
       if (blueWin) vsContent = `<div class="vs-result result-win-blue">藍勝</div>`;
@@ -1741,8 +1836,8 @@
       // 更新狀態 badge
       const badge = card.querySelector('.badge');
       if (badge) {
-        badge.className = `badge badge-status-${escapeHtml(m.status || '未開始')}`;
-        badge.textContent = m.status || '未開始';
+        badge.className = `badge badge-status-${escapeHtml(dispStatus)}`;
+        badge.textContent = dispStatus;
       }
 
       // 更新 athletes 區域
@@ -1808,56 +1903,55 @@
 
       for (const m of allMatches) {
         const candidates = [];
-        if (m.blue?.name) candidates.push({ name: m.blue.name, dojo: m.blue.dojo || '', coach: m.blue.coach || '', side: '藍' });
-        if (m.red?.name) candidates.push({ name: m.red.name, dojo: m.red.dojo || '', coach: m.red.coach || '', side: '紅' });
+        if (m.blue?.name) candidates.push({
+          name: m.blue.name, dojo: m.blue.dojo || '', coach: m.blue.coach || '',
+          athleteNo: m.blue.athleteNo || '', side: '藍'
+        });
+        if (m.red?.name) candidates.push({
+          name: m.red.name, dojo: m.red.dojo || '', coach: m.red.coach || '',
+          athleteNo: m.red.athleteNo || '', side: '紅'
+        });
 
-        // 教練匹配 → 帶出該場
-        const coaches = [m.blue?.coach, m.red?.coach].filter(Boolean);
-        if (coaches.some(c => String(c).toLowerCase().includes(q))) {
-          const key = (m.id || m.matchId) + '|coach';
-          if (!seen.has(key)) {
-            seen.add(key);
-            const hit = coaches.find(c => String(c).toLowerCase().includes(q));
-            results.push({
-              id: m.id || m.matchId,
-              matchId: m.matchId,
-              title: m.blue?.name || m.red?.name || m.matchId,
-              meta: `教練 ${hit} · ${m.matchId} · ${m.round || ''}`,
-              type: 'coach'
-            });
-          }
+        const matchKey = m.id || m.matchId;
+
+        function athleteMeta(c) {
+          // 統一：道場 · 教練 · 編號 · 場次（有才顯示）
+          return [c.dojo, c.coach, c.athleteNo, m.matchId].filter(Boolean).join(' · ');
         }
 
-        // 場次編號匹配
+        // 場次編號匹配（無特定選手時用場次當標題）
         if (m.matchId && m.matchId.toLowerCase().includes(q)) {
-          const key = m.matchId;
-          if (!seen.has(key)) {
-            seen.add(key);
+          if (!seen.has(matchKey)) {
+            seen.add(matchKey);
             results.push({
-              id: m.id || m.matchId,
+              id: matchKey,
               matchId: m.matchId,
               title: m.matchId,
-              meta: `${m.date || ''} · ${m.round || ''} · ${m.category || ''} · ${m.venue || ''}`.replace(/^[·\s]+/, ''),
+              meta: [m.venue, m.round, m.date].filter(Boolean).join(' · '),
               type: 'match'
             });
           }
         }
 
+        // 選手／道場／教練／編號：標題＝命中的選手；副標格式統一
         for (const c of candidates) {
           if (!c.name || c.name === '—' || c.name.includes('勝方') || c.name === 'Bye') continue;
-          if (c.name.toLowerCase().includes(q) || (c.dojo && c.dojo.toLowerCase().includes(q)) || (c.coach && c.coach.toLowerCase().includes(q))) {
-            const key = m.matchId + '|' + c.name;
-            if (!seen.has(key)) {
-              seen.add(key);
-              results.push({
-                id: m.id || m.matchId,
-                matchId: m.matchId,
-                title: c.name,
-                meta: `${c.dojo} · ${m.matchId} · ${m.date || ''} · ${m.round || ''}`,
-                type: 'athlete'
-              });
-            }
-          }
+          const nameHit = c.name.toLowerCase().includes(q);
+          const dojoHit = c.dojo && c.dojo.toLowerCase().includes(q);
+          const coachHit = c.coach && c.coach.toLowerCase().includes(q);
+          const noHit = c.athleteNo && String(c.athleteNo).toLowerCase().includes(q);
+          if (!nameHit && !dojoHit && !coachHit && !noHit) continue;
+
+          if (seen.has(matchKey)) continue;
+          seen.add(matchKey);
+
+          results.push({
+            id: matchKey,
+            matchId: m.matchId,
+            title: c.name,
+            meta: athleteMeta(c),
+            type: 'athlete'
+          });
         }
 
         if (results.length >= 8) break;
