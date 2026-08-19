@@ -341,8 +341,12 @@
       background: rgba(0,0,0,0.75);
       z-index: 200;
       display: none;
-      align-items: flex-end;
+      align-items: center;
       justify-content: center;
+      padding: 16px;
+      /* 略偏下，單手較易按 */
+      padding-bottom: 12vh;
+      box-sizing: border-box;
     }
 
     .modal-overlay.show {
@@ -353,14 +357,18 @@
       background: var(--card-bg);
       width: 100%;
       max-width: 420px;
-      border-radius: 20px 20px 0 0;
+      border-radius: 16px;
       padding: 20px;
-      animation: slideUp 0.25s ease;
+      animation: modalIn 0.22s ease;
+      max-height: 78vh;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.45);
     }
 
-    @keyframes slideUp {
-      from { transform: translateY(100%); }
-      to { transform: translateY(0); }
+    @keyframes modalIn {
+      from { transform: translateY(12px) scale(0.96); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
     }
 
     .modal h3 {
@@ -670,8 +678,11 @@
       background: rgba(0,0,0,0.75);
       z-index: 250;
       display: none;
-      align-items: flex-end;
+      align-items: center;
       justify-content: center;
+      padding: 16px;
+      padding-bottom: 12vh;
+      box-sizing: border-box;
     }
     .path-modal-overlay.show {
       display: flex;
@@ -680,11 +691,13 @@
       background: var(--card-bg);
       width: 100%;
       max-width: 420px;
-      max-height: 80vh;
-      border-radius: 20px 20px 0 0;
+      max-height: 78vh;
+      border-radius: 16px;
       padding: 20px 16px 24px;
       overflow-y: auto;
-      animation: slideUp 0.25s ease;
+      -webkit-overflow-scrolling: touch;
+      animation: modalIn 0.22s ease;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.45);
     }
     .path-modal h3 {
       text-align: center;
@@ -906,19 +919,52 @@
       transform: rotate(180deg);
     }
     .filter-panel {
-      display: none;
-      padding: 0 16px 10px;
-      border-bottom: 1px solid var(--border);
+      display: grid;
+      grid-template-rows: 0fr;
+      opacity: 0;
+      transition: grid-template-rows 0.22s ease, opacity 0.2s ease;
+      border-bottom: 1px solid transparent;
+      background: rgba(15, 23, 42, 0.55);
     }
     .filter-panel.open {
-      display: block;
+      grid-template-rows: 1fr;
+      opacity: 1;
+      border-bottom-color: var(--border);
+    }
+    .filter-panel-inner {
+      overflow: hidden;
+      min-height: 0;
+      padding: 0 16px;
+    }
+    .filter-panel.open .filter-panel-inner {
+      padding-bottom: 12px;
     }
     .filter-panel .filters {
-      margin-top: 0;
+      margin-top: 4px;
     }
     .filter-panel .filter-toggle-row {
       margin-top: 8px;
     }
+    /* 篩選區控件：較扁、較工具列，和比賽卡片區隔 */
+    .filter-panel .filter-row select,
+    .filter-panel .filter-row-search input {
+      background: rgba(30, 41, 59, 0.9);
+      border: 1px solid rgba(71, 85, 105, 0.7);
+      border-radius: 6px;
+      padding: 7px 9px;
+      font-size: 0.8rem;
+      box-shadow: none;
+    }
+    .filter-panel .filter-row {
+      gap: 6px;
+    }
+    .filter-panel .filters {
+      gap: 6px;
+    }
+    .filter-toggle {
+      background: rgba(15, 23, 42, 0.4);
+    }
+
 
 
     .filters {
@@ -1016,6 +1062,268 @@
       opacity: 0.9;
     }
 
+
+    /* Multi-select (量級 / 場區) */
+    .ms-wrap {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+    }
+    .ms-btn {
+      width: 100%;
+      text-align: left;
+      background: rgba(30, 41, 59, 0.9);
+      border: 1px solid rgba(71, 85, 105, 0.7);
+      border-radius: 6px;
+      padding: 7px 28px 7px 9px;
+      font-size: 0.8rem;
+      color: var(--text);
+      cursor: pointer;
+      position: relative;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ms-btn::after {
+      content: '▾';
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+    .ms-btn.open::after {
+      content: '▴';
+    }
+    .ms-btn.has-value {
+      border-color: rgba(59, 130, 246, 0.55);
+      color: #e2e8f0;
+    }
+    .ms-dropdown {
+      display: none;
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      z-index: 200;
+      box-sizing: border-box;
+      width: min(calc(100vw - 32px), 340px);
+      min-width: 100%;
+      max-height: 50vh;
+      background: #1e293b;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      flex-direction: column;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+      overflow: hidden;
+    }
+    /* 右半邊按鈕：下拉往左展開，避免超出螢幕 */
+    .filter-row .ms-wrap:last-child .ms-dropdown,
+    .ms-wrap.align-end .ms-dropdown {
+      left: auto;
+      right: 0;
+    }
+    .ms-dropdown.open {
+      display: flex;
+    }
+    .ms-list {
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 4px 0;
+      flex: 1;
+      min-height: 0;
+      max-height: calc(50vh - 48px);
+    }
+    .ms-item {
+      display: flex;
+      flex-direction: row;
+      justify-content: flex-start;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      color: var(--text);
+      width: 100%;
+      box-sizing: border-box;
+      margin: 0;
+    }
+    .ms-item:active, .ms-item:hover {
+      background: rgba(59, 130, 246, 0.2);
+    }
+    .ms-item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      min-width: 18px;
+      margin: 2px 0 0 0;
+      accent-color: var(--blue);
+      flex-shrink: 0;
+    }
+    .ms-item span {
+      flex: 1 1 auto;
+      min-width: 0;
+      text-align: left;
+      white-space: normal;
+      word-break: break-word;
+      line-height: 1.35;
+      overflow: visible;
+    }
+    .ms-footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 10px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+      background: #1e293b;
+    }
+    .ms-footer button {
+      flex: 1;
+      padding: 8px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      cursor: pointer;
+    }
+    .ms-footer button.primary {
+      background: rgba(37, 99, 235, 0.35);
+      border-color: rgba(37, 99, 235, 0.5);
+      color: #dbeafe;
+    }
+
+
+    .ms-wrap.ms-wide .ms-dropdown {
+      width: min(calc(100vw - 32px), 360px);
+      left: auto;
+      right: 0; /* 量級在右半，往左展開 */
+    }
+
+
+    .f-btn {
+      flex: 1;
+      min-width: 0;
+      text-align: left;
+      background: rgba(30, 41, 59, 0.9);
+      border: 1px solid rgba(71, 85, 105, 0.7);
+      border-radius: 6px;
+      padding: 7px 28px 7px 9px;
+      font-size: 0.8rem;
+      color: var(--text);
+      cursor: pointer;
+      position: relative;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .f-btn::after {
+      content: '▾';
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+    .f-btn.has-value {
+      border-color: rgba(59, 130, 246, 0.55);
+      color: #e2e8f0;
+    }
+    .filter-modal-sheet {
+      max-width: 420px;
+      width: 100%;
+      max-height: 78vh;
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      overflow: hidden;
+      border-radius: 16px;
+    }
+    .filter-modal-list {
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 6px 0;
+      flex: 1;
+      min-height: 120px;
+      max-height: 52vh;
+    }
+    .f-opt {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      color: var(--text);
+      border: none;
+      background: transparent;
+      width: 100%;
+      text-align: left;
+      box-sizing: border-box;
+    }
+    .f-opt:active, .f-opt:hover {
+      background: rgba(59, 130, 246, 0.18);
+    }
+    .f-opt.selected {
+      background: rgba(37, 99, 235, 0.28);
+      color: #dbeafe;
+    }
+    .f-opt input {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      accent-color: var(--blue);
+    }
+    .f-opt-label {
+      flex: 1;
+      min-width: 0;
+      text-align: left;
+      white-space: normal;
+      line-height: 1.35;
+    }
+    .filter-modal-footer {
+      display: flex;
+      gap: 8px;
+      padding: 10px 14px 14px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .filter-modal-footer button {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .btn-primary-modal {
+      border: 1px solid rgba(37, 99, 235, 0.5);
+      background: rgba(37, 99, 235, 0.35);
+      color: #dbeafe;
+    }
+
+
+    .filter-modal-sheet .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px 8px;
+      flex-shrink: 0;
+    }
+    .filter-modal-sheet .modal-header h3 {
+      margin: 0;
+      font-size: 1rem;
+    }
+    .filter-modal-sheet .modal-close {
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      cursor: pointer;
+      padding: 4px 8px;
+    }
+
   </style>
 </head>
 <body>
@@ -1056,38 +1364,19 @@
       </div>
     </div>
     <div class="filter-panel" id="filterPanel">
+      <div class="filter-panel-inner">
       <div class="filters">
         <div class="filter-row">
-          <select id="filterDate">
-            <option value="">全部日期</option>
-          </select>
-          <select id="filterCategory">
-            <option value="">全部量級</option>
-          </select>
+          <button type="button" class="f-btn" id="btnFilterDate" onclick="openFilterModal('date')">全部日期</button>
+          <button type="button" class="f-btn" id="btnFilterCheckIn" onclick="openFilterModal('checkIn')">全部時段</button>
         </div>
         <div class="filter-row">
-          <select id="filterVenue">
-            <option value="">全部場區</option>
-          </select>
-          <select id="filterRound">
-            <option value="">全部輪次</option>
-          </select>
-          <select id="filterStatus">
-            <option value="">全部狀態</option>
-            <option value="未開始">未開始</option>
-            <option value="召集中">召集中</option>
-            <option value="下一場">下一場</option>
-            <option value="進行中">進行中</option>
-            <option value="已完成">已完成</option>
-          </select>
+          <button type="button" class="f-btn" id="btnFilterCategory" onclick="openFilterModal('category')">全部量級</button>
+          <button type="button" class="f-btn" id="btnFilterVenue" onclick="openFilterModal('venue')">全部場區</button>
         </div>
         <div class="filter-row">
-          <select id="filterCheckIn">
-            <option value="">全部報到時間</option>
-          </select>
-          <select id="filterMatchTime">
-            <option value="">全部比賽時間</option>
-          </select>
+          <button type="button" class="f-btn" id="btnFilterRound" onclick="openFilterModal('round')">全部輪次</button>
+          <button type="button" class="f-btn" id="btnFilterStatus" onclick="openFilterModal('status')">全部狀態</button>
         </div>
         <div class="filter-row filter-row-search">
           <div class="search-wrap">
@@ -1102,6 +1391,7 @@
           <span class="toggle-text">隱藏已完成</span>
         </label>
         <button type="button" class="btn-clear-filters" id="btnClearFilters" onclick="clearAllFilters()">清除篩選</button>
+      </div>
       </div>
     </div>
   <div class="filter-count" id="filterCount"></div>
@@ -1128,8 +1418,25 @@
   </div>
 
   <!-- Athlete Path Modal -->
+    <!-- Filter selection modal -->
+  <div class="modal-overlay" id="filterModal" onclick="if(event.target===this)closeFilterModal()">
+    <div class="modal filter-modal-sheet" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3 id="filterModalTitle">篩選</h3>
+        <button type="button" class="modal-close" onclick="closeFilterModal()">✕</button>
+      </div>
+      <div class="filter-modal-list" id="filterModalList"></div>
+      <div class="filter-modal-footer" id="filterModalFooter">
+        <button type="button" class="btn-clear-filters" onclick="clearCurrentFilterModal()">清除</button>
+        <button type="button" class="btn-primary-modal" onclick="closeFilterModal()">完成</button>
+      </div>
+    </div>
+  </div>
+
+
   <div class="path-modal-overlay" id="pathModalOverlay">
-    <div class="path-modal" id="pathModal">
+    
+<div class="path-modal" id="pathModal">
       <h3 id="pathTitle">選手出線路徑</h3>
       <div class="path-sub" id="pathSub"></div>
       <div id="pathList"></div>
@@ -1149,6 +1456,10 @@
     let refreshTimer = null;
     // 正在寫入 Google Sheet 的場次（樂觀更新保護）
     const pendingWrites = new Set();
+    let selectedCategories = [];
+    let selectedVenues = [];
+    let filterState = { date: '', round: '', status: '', checkIn: '' };
+    let currentFilterModalType = null;
 
     // ========== IndexedDB 快取（stale-while-revalidate）==========
     const IDB_NAME = 'lineup-cache';
@@ -1217,14 +1528,7 @@
         updateFilterOptions();
         renderMatches();
       }
-      document.getElementById('filterCategory').addEventListener('change', onFilterChange);
-      document.getElementById('filterDate').addEventListener('change', onFilterChange);
-      document.getElementById('filterRound').addEventListener('change', onFilterChange);
-      document.getElementById('filterVenue').addEventListener('change', onFilterChange);
-      document.getElementById('filterStatus').addEventListener('change', onFilterChange);
-      document.getElementById('filterCheckIn')?.addEventListener('change', onFilterChange);
-      document.getElementById('filterMatchTime')?.addEventListener('change', onFilterChange);
-      document.getElementById('filterSearch').addEventListener('input', onSearchInput);
+                                    document.getElementById('filterSearch').addEventListener('input', onSearchInput);
       document.getElementById('filterSearch').addEventListener('focus', onSearchInput);
       document.getElementById('hideCompleted').addEventListener('change', renderMatches);
 
@@ -1234,23 +1538,40 @@
         if (wrap && !wrap.contains(e.target)) {
           hideSuggestions();
         }
+        if (!e.target.closest('.ms-wrap')) {
+          closeAllMultiSelects();
+        }
       });
 
       // 滑動列表時關閉建議（方案 E）
       const matchListEl = document.getElementById('matchList');
+      // 滾動超過閾值才收合篩選（避免太突然）
+      let collapseScrollY = 0;
+      const COLLAPSE_SCROLL_PX = 90;
+
+      function onListScrollCollapse(e) {
+        hideSuggestions();
+        const panel = document.getElementById('filterPanel');
+        if (!panel || !panel.classList.contains('open')) {
+          collapseScrollY = 0;
+          return;
+        }
+        const top = matchListEl ? matchListEl.scrollTop : (window.scrollY || 0);
+        if (top > collapseScrollY + COLLAPSE_SCROLL_PX || top > COLLAPSE_SCROLL_PX) {
+          collapseFilterPanel();
+          collapseScrollY = top;
+        }
+      }
+
       if (matchListEl) {
-        matchListEl.addEventListener('scroll', () => {
-          hideSuggestions();
-          collapseFilterPanel();
-        }, { passive: true });
-        matchListEl.addEventListener('touchmove', () => {
-          hideSuggestions();
-          collapseFilterPanel();
-        }, { passive: true });
+        matchListEl.addEventListener('scroll', onListScrollCollapse, { passive: true });
       }
       window.addEventListener('scroll', () => {
         hideSuggestions();
-        collapseFilterPanel();
+        const panel = document.getElementById('filterPanel');
+        if (!panel || !panel.classList.contains('open')) return;
+        const top = window.scrollY || document.documentElement.scrollTop || 0;
+        if (top > COLLAPSE_SCROLL_PX) collapseFilterPanel();
       }, { passive: true });
     });
 
@@ -1432,6 +1753,10 @@
       const open = panel.classList.toggle('open');
       if (toggle) toggle.classList.toggle('open', open);
       if (hint) hint.textContent = open ? '點擊收起' : '點擊展開';
+      if (open) {
+        // 重新展開時重置滾動收合基準
+        if (typeof collapseScrollY !== 'undefined') collapseScrollY = 0;
+      }
     }
 
     function collapseFilterPanel() {
@@ -1442,19 +1767,19 @@
       panel.classList.remove('open');
       if (toggle) toggle.classList.remove('open');
       if (hint) hint.textContent = '點擊展開';
+      closeAllMultiSelects();
     }
 
     function updateFilterBadge() {
       const badge = document.getElementById('filterBadge');
       if (!badge) return;
       let n = 0;
-      if (document.getElementById('filterCategory')?.value) n++;
-      if (document.getElementById('filterDate')?.value) n++;
-      if (document.getElementById('filterRound')?.value) n++;
-      if (document.getElementById('filterVenue')?.value) n++;
-      if (document.getElementById('filterStatus')?.value) n++;
-      if (document.getElementById('filterCheckIn')?.value) n++;
-      if (document.getElementById('filterMatchTime')?.value) n++;
+      if (selectedCategories.length) n++;
+      if (filterState.date) n++;
+      if (filterState.round) n++;
+      if (selectedVenues.length) n++;
+      if (filterState.status) n++;
+      if (filterState.checkIn) n++;
       if (document.getElementById('filterSearch')?.value.trim()) n++;
       if (document.getElementById('hideCompleted')?.checked) n++;
       badge.textContent = n;
@@ -1463,11 +1788,11 @@
 
 
     function clearAllFilters() {
-      const ids = ['filterDate', 'filterCategory', 'filterVenue', 'filterRound', 'filterStatus', 'filterCheckIn', 'filterMatchTime'];
-      ids.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
-      });
+      filterState = { date: '', round: '', status: '', checkIn: '' };
+      selectedCategories = [];
+      selectedVenues = [];
+      closeFilterModal();
+      updateFilterButtons();
       const search = document.getElementById('filterSearch');
       if (search) search.value = '';
       const hide = document.getElementById('hideCompleted');
@@ -1478,112 +1803,198 @@
       showToast('已清除篩選', 'success');
     }
 
-    function updateFilterOptions() {
-      const el = {
-        date: document.getElementById('filterDate'),
-        category: document.getElementById('filterCategory'),
-        venue: document.getElementById('filterVenue'),
-        round: document.getElementById('filterRound'),
-        status: document.getElementById('filterStatus'),
-        checkIn: document.getElementById('filterCheckIn'),
-        matchTime: document.getElementById('filterMatchTime')
+
+    
+    const FILTER_META = {
+      date: { title: '選擇日期', empty: '全部日期', multi: false },
+      category: { title: '選擇量級', empty: '全部量級', multi: true },
+      venue: { title: '選擇場區', empty: '全部場區', multi: true },
+      round: { title: '選擇輪次', empty: '全部輪次', multi: false },
+      status: { title: '選擇狀態', empty: '全部狀態', multi: false },
+      checkIn: { title: '選擇時段', empty: '全部時段', multi: false }
+    };
+
+    function getFilterButtonId(type) {
+      const map = {
+        date: 'btnFilterDate', category: 'btnFilterCategory', venue: 'btnFilterVenue',
+        round: 'btnFilterRound', status: 'btnFilterStatus',
+        checkIn: 'btnFilterCheckIn'
       };
-
-      const selected = {
-        date: el.date?.value || '',
-        category: el.category?.value || '',
-        venue: el.venue?.value || '',
-        round: el.round?.value || '',
-        status: el.status?.value || '',
-        checkIn: el.checkIn?.value || '',
-        matchTime: el.matchTime?.value || ''
-      };
-
-      function poolExcluding(excludeKey) {
-        return allMatches.filter(m => {
-          if (excludeKey !== 'date' && selected.date && (m.date || '') !== selected.date) return false;
-          if (excludeKey !== 'category' && selected.category && m.category !== selected.category) return false;
-          if (excludeKey !== 'venue' && selected.venue && m.venue !== selected.venue) return false;
-          if (excludeKey !== 'round' && selected.round && m.round !== selected.round) return false;
-          if (excludeKey !== 'status' && selected.status && effectiveStatus(m) !== selected.status) return false;
-          if (excludeKey !== 'checkIn' && selected.checkIn && (m.checkInTime || '') !== selected.checkIn) return false;
-          if (excludeKey !== 'matchTime' && selected.matchTime && (m.time || '') !== selected.matchTime) return false;
-          return true;
-        });
-      }
-
-      function uniqueSorted(arr, orderList) {
-        const set = [...new Set(arr.filter(Boolean))];
-        if (orderList) {
-          set.sort((a, b) => {
-            const ia = orderList.indexOf(a);
-            const ib = orderList.indexOf(b);
-            if (ia === -1 && ib === -1) return String(a).localeCompare(String(b), 'zh-HK');
-            if (ia === -1) return 1;
-            if (ib === -1) return -1;
-            return ia - ib;
-          });
-        } else {
-          set.sort((a, b) => String(a).localeCompare(String(b), 'zh-HK'));
-        }
-        return set;
-      }
-
-      const roundOrder = ['32強', '16強', '8強', '4強', '準決賽', '決賽', '季軍賽'];
-      const statusOrder = ['未開始', '召集中', '下一場', '進行中', '已完成'];
-
-      const dates = uniqueSorted(poolExcluding('date').map(m => m.date));
-      const categories = uniqueSorted(poolExcluding('category').map(m => m.category));
-      const venues = uniqueSorted(poolExcluding('venue').map(m => m.venue));
-      const rounds = uniqueSorted(poolExcluding('round').map(m => m.round), roundOrder);
-      const statuses = uniqueSorted(poolExcluding('status').map(m => effectiveStatus(m)), statusOrder);
-      const checkIns = uniqueSorted(poolExcluding('checkIn').map(m => m.checkInTime));
-      const matchTimes = uniqueSorted(poolExcluding('matchTime').map(m => m.time));
-
-      function refill(selectEl, emptyLabel, values, current) {
-        if (!selectEl) return '';
-        selectEl.innerHTML = `<option value="">${emptyLabel}</option>` +
-          values.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
-        if (current && values.includes(current)) {
-          selectEl.value = current;
-          return current;
-        }
-        selectEl.value = '';
-        return '';
-      }
-
-      selected.date = refill(el.date, '全部日期', dates, selected.date);
-      selected.category = refill(el.category, '全部量級', categories, selected.category);
-      selected.venue = refill(el.venue, '全部場區', venues, selected.venue);
-      selected.round = refill(el.round, '全部輪次', rounds, selected.round);
-      selected.status = refill(el.status, '全部狀態', statuses, selected.status);
-      selected.checkIn = refill(el.checkIn, '全部報到時間', checkIns, selected.checkIn);
-      selected.matchTime = refill(el.matchTime, '全部比賽時間', matchTimes, selected.matchTime);
+      return map[type];
     }
 
+    function updateFilterButtons() {
+      const setBtn = (type, text, has) => {
+        const btn = document.getElementById(getFilterButtonId(type));
+        if (!btn) return;
+        btn.textContent = text;
+        btn.classList.toggle('has-value', !!has);
+      };
+      setBtn('date', filterState.date || FILTER_META.date.empty, !!filterState.date);
+      setBtn('round', filterState.round || FILTER_META.round.empty, !!filterState.round);
+      setBtn('status', filterState.status || FILTER_META.status.empty, !!filterState.status);
+      setBtn('checkIn', filterState.checkIn || FILTER_META.checkIn.empty, !!filterState.checkIn);
+
+      if (!selectedCategories.length) setBtn('category', FILTER_META.category.empty, false);
+      else if (selectedCategories.length === 1) setBtn('category', selectedCategories[0], true);
+      else setBtn('category', '量級 · ' + selectedCategories.length, true);
+
+      if (!selectedVenues.length) setBtn('venue', FILTER_META.venue.empty, false);
+      else if (selectedVenues.length === 1) setBtn('venue', selectedVenues[0], true);
+      else setBtn('venue', '場區 · ' + selectedVenues.length, true);
+    }
+
+    function poolExcluding(excludeKey) {
+      return allMatches.filter(m => {
+        if (excludeKey !== 'date' && filterState.date && (m.date || '') !== filterState.date) return false;
+        if (excludeKey !== 'category' && selectedCategories.length && !selectedCategories.includes(m.category)) return false;
+        if (excludeKey !== 'venue' && selectedVenues.length && !selectedVenues.includes(m.venue)) return false;
+        if (excludeKey !== 'round' && filterState.round && m.round !== filterState.round) return false;
+        if (excludeKey !== 'status' && filterState.status && effectiveStatus(m) !== filterState.status) return false;
+        if (excludeKey !== 'checkIn' && filterState.checkIn && (m.checkInTime || '') !== filterState.checkIn) return false;
+        return true;
+      });
+    }
+
+    function uniqueSorted(arr, orderList) {
+      const set = [...new Set(arr.filter(Boolean))];
+      if (orderList) {
+        set.sort((a, b) => {
+          const ia = orderList.indexOf(a);
+          const ib = orderList.indexOf(b);
+          if (ia === -1 && ib === -1) return String(a).localeCompare(String(b), 'zh-HK');
+          if (ia === -1) return 1;
+          if (ib === -1) return -1;
+          return ia - ib;
+        });
+      } else {
+        set.sort((a, b) => String(a).localeCompare(String(b), 'zh-HK'));
+      }
+      return set;
+    }
+
+    function getOptionsForType(type) {
+      const roundOrder = ['32強', '16強', '8強', '4強', '準決賽', '決賽', '季軍賽'];
+      const statusOrder = ['未開始', '召集中', '下一場', '進行中', '已完成'];
+      const pool = poolExcluding(type);
+      if (type === 'date') return uniqueSorted(pool.map(m => m.date));
+      if (type === 'category') return uniqueSorted(pool.map(m => m.category));
+      if (type === 'venue') return uniqueSorted(pool.map(m => m.venue));
+      if (type === 'round') return uniqueSorted(pool.map(m => m.round), roundOrder);
+      if (type === 'status') return uniqueSorted(pool.map(m => effectiveStatus(m)), statusOrder);
+      if (type === 'checkIn') return uniqueSorted(pool.map(m => m.checkInTime));
+      return [];
+    }
+
+    function updateFilterOptions() {
+      // 清掉已不存在的多選值
+      const cats = getOptionsForType('category');
+      const vens = getOptionsForType('venue');
+      selectedCategories = selectedCategories.filter(c => cats.includes(c));
+      selectedVenues = selectedVenues.filter(v => vens.includes(v));
+      // 單選若失效則清空
+      ['date', 'round', 'status', 'checkIn'].forEach(k => {
+        if (!filterState[k]) return;
+        const opts = getOptionsForType(k);
+        if (!opts.includes(filterState[k])) filterState[k] = '';
+      });
+      updateFilterButtons();
+    }
+
+    function openFilterModal(type) {
+      currentFilterModalType = type;
+      const meta = FILTER_META[type];
+      if (!meta) return;
+      document.getElementById('filterModalTitle').textContent = meta.title;
+      const footer = document.getElementById('filterModalFooter');
+      // 多選顯示完成；單選也可清除
+      if (footer) footer.style.display = 'flex';
+
+      const options = getOptionsForType(type);
+      const list = document.getElementById('filterModalList');
+      const modal = document.getElementById('filterModal');
+      if (!list || !modal) {
+        console.error('filterModal DOM missing');
+        return;
+      }
+      if (!options.length) {
+        list.innerHTML = '<div class="f-opt" style="color:var(--text-muted)">沒有可選項目</div>';
+      } else if (meta.multi) {
+        const selected = type === 'category' ? selectedCategories : selectedVenues;
+        list.innerHTML = options.map(v => {
+          const checked = selected.includes(v) ? 'checked' : '';
+          const safe = encodeURIComponent(v);
+          return `<label class="f-opt">
+            <input type="checkbox" ${checked} onchange="onFilterMultiToggle('${type}', decodeURIComponent('${safe}'), this.checked)">
+            <span class="f-opt-label">${escapeHtml(v)}</span>
+          </label>`;
+        }).join('');
+      } else {
+        const cur = filterState[type] || '';
+        list.innerHTML = options.map(v => {
+          const sel = v === cur ? 'selected' : '';
+          const safe = encodeURIComponent(v);
+          return `<button type="button" class="f-opt ${sel}" onclick="onFilterSinglePick('${type}', decodeURIComponent('${safe}'))">
+            <span class="f-opt-label">${escapeHtml(v)}</span>
+          </button>`;
+        }).join('');
+      }
+
+      document.getElementById('filterModal').classList.add('show');
+    }
+
+    function closeFilterModal() {
+      const modal = document.getElementById('filterModal');
+      if (modal) modal.classList.remove('show');
+      currentFilterModalType = null;
+    }
+
+    function onFilterSinglePick(type, value) {
+      filterState[type] = value;
+      updateFilterOptions();
+      renderMatches();
+      closeFilterModal();
+    }
+
+    function onFilterMultiToggle(type, value, checked) {
+      let arr = type === 'category' ? [...selectedCategories] : [...selectedVenues];
+      if (checked) {
+        if (!arr.includes(value)) arr.push(value);
+      } else {
+        arr = arr.filter(x => x !== value);
+      }
+      if (type === 'category') selectedCategories = arr;
+      else selectedVenues = arr;
+      updateFilterOptions();
+      renderMatches();
+    }
+
+    function clearCurrentFilterModal() {
+      const type = currentFilterModalType;
+      if (!type) return;
+      if (FILTER_META[type].multi) {
+        if (type === 'category') selectedCategories = [];
+        else selectedVenues = [];
+      } else {
+        filterState[type] = '';
+      }
+      updateFilterOptions();
+      renderMatches();
+      openFilterModal(type); // 刷新列表
+    }
 
     function getFilteredMatches() {
-      const cat = document.getElementById('filterCategory').value;
-      const date = document.getElementById('filterDate')?.value || '';
-      const round = document.getElementById('filterRound')?.value || '';
-      const ven = document.getElementById('filterVenue').value;
-      const status = document.getElementById('filterStatus')?.value || '';
-      const checkIn = document.getElementById('filterCheckIn')?.value || '';
-      const matchTime = document.getElementById('filterMatchTime')?.value || '';
       const search = document.getElementById('filterSearch').value.trim().toLowerCase();
       const hideCompleted = document.getElementById('hideCompleted').checked;
 
       return allMatches.filter(m => {
-        if (cat && m.category !== cat) return false;
-        if (date && (m.date || '') !== date) return false;
-        if (round && m.round !== round) return false;
-        if (ven && m.venue !== ven) return false;
-        if (status && effectiveStatus(m) !== status) return false;
-        if (checkIn && (m.checkInTime || '') !== checkIn) return false;
-        if (matchTime && (m.time || '') !== matchTime) return false;
-        if (hideCompleted) {
-          if (effectiveStatus(m) === '已完成') return false;
-        }
+        if (filterState.date && (m.date || '') !== filterState.date) return false;
+        if (selectedCategories.length && !selectedCategories.includes(m.category)) return false;
+        if (selectedVenues.length && !selectedVenues.includes(m.venue)) return false;
+        if (filterState.round && m.round !== filterState.round) return false;
+        if (filterState.status && effectiveStatus(m) !== filterState.status) return false;
+        if (filterState.checkIn && (m.checkInTime || '') !== filterState.checkIn) return false;
+        if (hideCompleted && effectiveStatus(m) === '已完成') return false;
         if (search) {
           const tokens = search.split(/\s+/).filter(Boolean);
           const text = [
@@ -1594,8 +2005,7 @@
             m.blue?.athleteNo, m.red?.athleteNo,
             m.checkInTime, m.time
           ].join(' ').toLowerCase();
-          const ok = text.includes(search) || tokens.some(t => text.includes(t));
-          if (!ok) return false;
+          if (!(text.includes(search) || tokens.some(t => text.includes(t)))) return false;
         }
         return true;
       });
