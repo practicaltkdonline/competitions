@@ -2,7 +2,23 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
+  <style>
+    html, body, #root { height: 100%; height: 100dvh; max-height: 100dvh; overflow: hidden; }
+    body { touch-action: manipulation; }
+    .score-num { font-size: clamp(4.2rem, 38vh, 18rem); line-height: 0.85; font-weight: 800; }
+    .timer-main { font-size: clamp(1.6rem, 9vh, 6.5rem); line-height: 1; }
+    .timer-ms { font-size: clamp(0.9rem, 4.5vh, 3rem); line-height: 1; }
+    .result-num { font-size: clamp(2rem, 12vh, 6rem); line-height: 1.1; }
+    .side-title { font-size: clamp(0.85rem, 3.2vh, 1.5rem); }
+    .hearts-row { font-size: clamp(0.95rem, 3.6vh, 1.75rem); }
+    .modal-box { width: min(92vw, 28rem); max-height: 92dvh; overflow-y: auto; }
+    @media (max-height: 520px) {
+      .desk-only { display: none !important; }
+      .score-panel { gap: 0.25rem !important; }
+      .bottom-status { bottom: 0.35rem !important; }
+    }
+  </style>
   <title>搏擊計分遊戲</title>
   <meta name="theme-color" content="#111827">
   <meta name="mobile-web-app-capable" content="yes">
@@ -52,7 +68,7 @@
     }
   </script>
 </head>
-<body class="bg-gray-900 text-white flex min-h-screen overflow-hidden">
+<body class="bg-gray-900 text-white flex h-[100dvh] overflow-hidden">
   <div id="root" class="flex flex-1"></div>
   <script type="text/babel">
     const { useState, useEffect } = React;
@@ -1066,8 +1082,8 @@
         const ms = Math.floor(milliseconds / 10);
         return (
           <span>
-            <span className="text-[8rem]">{`${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`}</span>
-            <span className="text-[4rem]">{`:${ms.toString().padStart(2, '0')}`}</span>
+            <span className="timer-main font-bold">{`${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`}</span>
+            <span className="timer-ms">{`:${ms.toString().padStart(2, '0')}`}</span>
           </span>
         );
       };
@@ -1112,9 +1128,9 @@
         });
 
       return (
-        <div className="flex flex-1 min-h-screen relative">
+        <div className="flex flex-1 h-full relative overflow-hidden">
           {helpTextOn ? (
-            <div className="absolute left-4 top-4 text-sm flex flex-col space-y-1 min-h-[100px] min-w-[150px]">
+            <div className="desk-only absolute left-2 top-2 text-[10px] sm:text-sm flex flex-col space-y-1 z-20">
               <p className={timerOn ? "text-green-400 bg-gray-800 px-2 py-1 rounded" : "text-red-400 bg-gray-800 px-2 py-1 rounded"}>
                 計時: {timerOn ? "開" : "關"}
               </p>
@@ -1137,9 +1153,9 @@
               </p>
             </div>
           ) : (
-            <div className="absolute left-4 top-4 min-h-[100px] min-w-[150px]"></div>
+            <div className="desk-only absolute left-2 top-2"></div>
           )}
-          <div className="absolute left-4 top-1/4 text-sm flex flex-col items-start max-w-[150px] min-h-[100px]">
+          <div className="desk-only absolute left-2 top-[28%] text-[10px] sm:text-sm flex flex-col items-start max-w-[120px] z-10">
             <p>得分記錄:</p>
             {leftLog.length > 0 && (
               <ul>
@@ -1149,7 +1165,7 @@
               </ul>
             )}
           </div>
-          <div className="absolute left-4 bottom-[84px] text-sm flex flex-col items-end max-w-[150px]">
+          <div className="desk-only absolute left-2 bottom-8 text-[10px] sm:text-sm flex flex-col items-end max-w-[120px] z-10">
             {sortedControllerIndices.map(i => (
               <div key={i} className="flex items-end space-x-1 w-[120px]">
                 <span className="w-8 text-right">{controllerPositions[i] || `J${i + 1}`}</span>
@@ -1161,27 +1177,27 @@
               </div>
             ))}
           </div>
-          <div className="flex-1 bg-blue-600 flex flex-col items-center justify-center space-y-6">
-            <h2 className="text-2xl">藍方分數</h2>
-            <p className="text-[24rem] font-bold">{leftScore}</p>
-            <p className="text-[2rem] flex space-x-4 bg-black p-2 rounded min-h-[40px]">{Array(leftHearts).fill('❤️').join('x')}</p>
+          <div className="score-panel flex-1 bg-blue-600 flex flex-col items-center justify-center space-y-1 sm:space-y-3 px-1">
+            <h2 className="side-title">藍方分數</h2>
+            <p className="score-num">{leftScore}</p>
+            <p className="hearts-row flex space-x-1 bg-black px-2 py-0.5 rounded">{Array(leftHearts).fill('❤️').join('x')}</p>
             {helpTextOn ? (
-              <p className="text-sm min-h-[20px]">上: +1, L1: +2, L2: +3, 右: +4, 左: +5, 主控下: 藍心-1紅分+1, 主控 L3: 復原藍方</p>
+              <p className="desk-only text-sm min-h-[20px]">上: +1, L1: +2, L2: +3, 右: +4, 左: +5, 主控下: 藍心-1紅分+1, 主控 L3: 復原藍方</p>
             ) : (
-              <p className="min-h-[20px]"></p>
+              <p className="desk-only min-h-[20px]"></p>
             )}
           </div>
-          <div className="flex-1 bg-red-600 flex flex-col items-center justify-center space-y-6">
-            <h2 className="text-2xl">紅方分數</h2>
-            <p className="text-[24rem] font-bold">{rightScore}</p>
-            <p className="text-[2rem] flex space-x-4 bg-black p-2 rounded min-h-[40px]">{Array(rightHearts).fill('❤️').join('x')}</p>
+          <div className="score-panel flex-1 bg-red-600 flex flex-col items-center justify-center space-y-1 sm:space-y-3 px-1">
+            <h2 className="side-title">紅方分數</h2>
+            <p className="score-num">{rightScore}</p>
+            <p className="hearts-row flex space-x-1 bg-black px-2 py-0.5 rounded">{Array(rightHearts).fill('❤️').join('x')}</p>
             {helpTextOn ? (
-              <p className="text-sm min-h-[20px]">三角: +1, R1: +2, R2: +3, 方: +4, 圓圈: +5, 主控交叉: 紅心-1藍分+1, 主控 R3: 復原紅方</p>
+              <p className="desk-only text-sm min-h-[20px]">三角: +1, R1: +2, R2: +3, 方: +4, 圓圈: +5, 主控交叉: 紅心-1藍分+1, 主控 R3: 復原紅方</p>
             ) : (
-              <p className="min-h-[20px]"></p>
+              <p className="desk-only min-h-[20px]"></p>
             )}
           </div>
-          <div className="absolute right-4 top-1/4 text-sm flex flex-col items-start max-w-[150px] min-h-[100px]">
+          <div className="desk-only absolute right-2 top-[28%] text-[10px] sm:text-sm flex flex-col items-start max-w-[120px] z-10">
             <p>得分記錄:</p>
             {rightLog.length > 0 && (
               <ul>
@@ -1191,7 +1207,7 @@
               </ul>
             )}
           </div>
-          <div className="absolute right-4 bottom-[84px] text-sm flex flex-col items-end max-w-[150px]">
+          <div className="desk-only absolute right-2 bottom-8 text-[10px] sm:text-sm flex flex-col items-end max-w-[120px] z-10">
             {sortedControllerIndices.map(i => (
               <div key={i} className="flex items-end space-x-1 flex-row-reverse space-x-reverse w-[120px] justify-end">
                 <span className="w-8 text-left">{controllerPositions[i] || `J${i + 1}`}</span>
@@ -1203,33 +1219,33 @@
               </div>
             ))}
           </div>
-          <div className="absolute top-4 flex flex-col items-center w-full">
+          <div className="absolute top-1 sm:top-3 flex flex-col items-center w-full pointer-events-none z-20">
             {timerOn && (
               <p>{formatTimer(timerSeconds, timerMilliseconds)}</p>
             )}
           </div>
-          <div className="absolute bottom-1/4 left-1/2 transform -translate-x-1/2 flex flex-col items-center space-y-2">
+          <div className="desk-only absolute bottom-1/4 left-1/2 transform -translate-x-1/2 flex flex-col items-center space-y-2">
             {helpTextOn && (
               <p className="text-lg bg-gray-800 px-4 py-2 rounded min-h-[40px]">主控 Share: 分勝負</p>
             )}
           </div>
-          <div className="absolute bottom-10 flex flex-col items-center w-full space-y-2 min-h-[40px]">
+          <div className="bottom-status absolute bottom-1 sm:bottom-6 flex flex-col items-center w-full space-y-1 z-20">
             {helpTextOn && (
-              <p className="text-sm">主控 L3+R3: 重置, Options: 設定, Touch Pad: 倒數啟動/暫停</p>
+              <p className="desk-only text-sm">主控 L3+R3: 重置, Options: 設定, Touch Pad: 倒數啟動/暫停</p>
             )}
             <p className={controllerConnected.some(c => c) ? "text-green-400" : "text-red-400"}>
               {controllerConnected.some(c => c) ? `手掣已連接: ${sortedControllerIndices.map(i => controllerPositions[i] || `J${i + 1}`).filter(p => p).join(', ')}` : "請連接PS4手制"}
             </p>
           </div>
           {result && (
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-800 p-6 rounded-lg shadow-lg flex flex-col items-center space-y-4 w-1/3 z-10">
+            <div className="modal-box absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-800 p-4 sm:p-6 rounded-lg shadow-lg flex flex-col items-center space-y-3 z-30">
               {result === '平手，請選擇勝方' ? (
                 <div className="flex flex-col items-center space-y-2">
-                  <p className="text-[2rem] font-bold">平手</p>
-                  <p className="text-[2rem] font-bold">請選擇勝方</p>
+                  <p className="text-2xl font-bold">平手</p>
+                  <p className="text-2xl font-bold">請選擇勝方</p>
                 </div>
               ) : (
-                <p className="text-[8rem] font-bold">{result}</p>
+                <p className="result-num font-bold">{result}</p>
               )}
               {result === '平手，請選擇勝方' ? (
                 <div className="flex flex-col items-center space-y-2">
@@ -1245,8 +1261,8 @@
             </div>
           )}
           {settingsOpen && (
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-800 p-6 rounded-lg shadow-lg flex flex-col items-center space-y-4 w-1/3 z-10">
-              <p className="text-2xl font-bold">設定</p>
+            <div className="modal-box absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-800 p-4 sm:p-6 rounded-lg shadow-lg flex flex-col items-center space-y-3 z-30">
+              <p className="text-xl sm:text-2xl font-bold">設定</p>
               {!isEditingMatchSettings && !isEditingTime && !isEditingManual && !isEditingPosition && !isEditingBasicSettings && !isEditingManualPosition ? (
                 <div className="flex flex-col items-center space-y-2 w-full">
                   <p className={selectedOption === 0 ? "bg-gray-600 px-2 py-1 rounded w-full text-center" : "px-2 py-1 w-full text-center"}>
@@ -1364,8 +1380,8 @@
             </div>
           )}
           {overtimeOpen && (
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-800 p-6 rounded-lg shadow-lg flex flex-col items-center space-y-4 w-1/3 z-10">
-              <p className="text-2xl font-bold">三角: 分勝負</p>
+            <div className="modal-box absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-800 p-4 sm:p-6 rounded-lg shadow-lg flex flex-col items-center space-y-3 z-30">
+              <p className="text-xl sm:text-2xl font-bold">三角: 分勝負</p>
               <p>加時秒數: {overtimeSeconds}</p>
               <p className="text-base">圓圈: 開始加時, 交叉: 關閉, 左/右: 調整秒數</p>
             </div>
