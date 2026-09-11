@@ -1,4 +1,4 @@
-const CACHE_NAME = 'score-game-pwa-v1';
+const CACHE_NAME = 'score-game-pwa-v3-pads';
 const PRECACHE_URLS = [
   './',
   './index.html',
